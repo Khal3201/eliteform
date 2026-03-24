@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "939544369119",
+    "project_id": "eliteform-9f2fc",
+    "storage_bucket": "eliteform-9f2fc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:939544369119:android:12ca6edee9257e84ba166a",
+        "android_client_info": {
+          "package_name": "com.example.eliteform"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "939544369119-2lalulls77qvnqt3vcc63klf5jkiiql9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4gZ8Y7QCemSJHvyRubS0BFtKWI8HOZhA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "939544369119-2lalulls77qvnqt3vcc63klf5jkiiql9.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "939544369119-igo0ocpal0gd4aidfg6v0g667g9s73q0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.eliteform"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
