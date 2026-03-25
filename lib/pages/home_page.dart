@@ -6,6 +6,7 @@ import 'rutina_page.dart';
 import 'dieta_page.dart';
 import 'ejercicios_page.dart';
 import 'eventos_page.dart';
+import 'planes_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,6 +23,7 @@ class _HomePageState extends State<HomePage> {
     DietaPage(),
     EjerciciosPage(),
     EventosPage(),
+    PlanesPage(),
     PerfilPage(),
   ];
 
@@ -75,6 +77,10 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.event),
             label: "Eventos",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.card_membership),
+            label: "Planes",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
