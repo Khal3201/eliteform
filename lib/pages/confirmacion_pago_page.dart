@@ -13,7 +13,6 @@ class ConfirmacionPagoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Sin AppBar para hacer la pantalla más impactante
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(28),
