@@ -1,0 +1,16 @@
+{
+  "nombre": "Superávit Limpio",
+  "objetivo": "Volumen",
+  "descripcion": "Para ganar masa muscular.",
+  "calorias": 3000,
+  "nivel": "Intermedia",
+  "preferencias_compatibles": ["Alta en proteínas"],
+  "comidas": [
+    {
+      "momento": "Desayuno",
+      "descripcion": "Alto en energía",
+      "calorias_aprox": 700,
+      "alimentos": ["Avena", "Leche", "Huevos"]
+    }
+  ]
+}

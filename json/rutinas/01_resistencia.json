@@ -1,0 +1,17 @@
+{
+  "nombre_rutina": "Resistencia Total",
+  "objetivo": "Resistencia",
+  "descripcion": "Alta repetición y poco descanso.",
+  "nivel": "Principiante",
+  "dias_por_semana": 4,
+  "musculos_principales": ["Full body"],
+  "dias": [
+    {
+      "nombre_dia": "Circuito",
+      "ejercicios": [
+        {"nombre": "Sentadillas", "musculo": "Piernas", "series": 3, "repeticiones": "20", "descanso": "30 seg"},
+        {"nombre": "Flexiones", "musculo": "Pecho", "series": 3, "repeticiones": "15", "descanso": "30 seg"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "nombre": "Definición Alta Proteína",
+  "objetivo": "Definición",
+  "descripcion": "Reducir grasa manteniendo músculo.",
+  "calorias": 2000,
+  "nivel": "Estricta",
+  "preferencias_compatibles": ["Alta en proteínas", "Baja en carbohidratos"],
+  "comidas": [
+    {
+      "momento": "Cena",
+      "descripcion": "Ligera y proteica",
+      "calorias_aprox": 500,
+      "alimentos": ["Pechuga de pollo", "Espinaca"]
+    }
+  ]
+}

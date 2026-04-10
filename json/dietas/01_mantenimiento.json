@@ -1,0 +1,16 @@
+{
+  "nombre": "Balance Diario",
+  "objetivo": "Mantenimiento",
+  "descripcion": "Mantener peso actual.",
+  "calorias": 2200,
+  "nivel": "Básica",
+  "preferencias_compatibles": ["Sin restricciones"],
+  "comidas": [
+    {
+      "momento": "Comida",
+      "descripcion": "Equilibrada",
+      "calorias_aprox": 700,
+      "alimentos": ["Pollo", "Arroz", "Verduras"]
+    }
+  ]
+}

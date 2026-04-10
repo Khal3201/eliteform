@@ -3,6 +3,7 @@ import 'package:eliteform/widgets/users_list.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
 import 'admin_pedidos_page.dart';
+import 'admin_contenido_page.dart'; // ← nuevo
 
 class AdminPage extends StatelessWidget {
   const AdminPage({super.key});
@@ -21,7 +22,7 @@ class AdminPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 4, // era 2, ahora 4
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Panel de Administrador'),
@@ -32,18 +33,16 @@ class AdminPage extends StatelessWidget {
             ),
           ],
           bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             indicatorColor: Colors.orangeAccent,
             labelColor: Colors.orangeAccent,
             unselectedLabelColor: Colors.white54,
             tabs: [
-              Tab(
-                icon: Icon(Icons.people_outline),
-                text: 'Usuarios',
-              ),
-              Tab(
-                icon: Icon(Icons.receipt_long_outlined),
-                text: 'Pedidos',
-              ),
+              Tab(icon: Icon(Icons.people_outline), text: 'Usuarios'),
+              Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Pedidos'),
+              Tab(icon: Icon(Icons.fitness_center), text: 'Rutinas'),
+              Tab(icon: Icon(Icons.restaurant_menu), text: 'Dietas'),
             ],
           ),
         ),
@@ -51,6 +50,8 @@ class AdminPage extends StatelessWidget {
           children: [
             UsersList(),
             AdminPedidosPage(),
+            AdminRutinasPage(),
+            AdminDietasPage(),
           ],
         ),
       ),

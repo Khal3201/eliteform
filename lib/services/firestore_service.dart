@@ -4,9 +4,9 @@ import '../models/user_model.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ─────────────────────────────────────────────────────────────
-  // USUARIOS (funciones existentes sin cambios)
-  // ─────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // USUARIOS  (funciones originales intactas)
+  // ═══════════════════════════════════════════════════════════════
 
   Future createUser({
     required String uid,
@@ -38,148 +38,167 @@ class FirestoreService {
     return _db.collection("usuarios").snapshots();
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // RUTINAS
-  // ─────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // RUTINAS — catálogo global (colección raíz "rutinas")
+  // ═══════════════════════════════════════════════════════════════
 
-  /// Obtiene todas las rutinas disponibles en el sistema.
-  Stream<QuerySnapshot> getRutinas() {
-    return _db.collection("rutinas").snapshots();
+  /// Todas las rutinas del admin (creado_por == 'admin')
+  Stream<QuerySnapshot> getRutinasAdmin() {
+    return _db
+        .collection('rutinas')
+        .where('creado_por', isEqualTo: 'admin')
+        .snapshots();
   }
 
-  /// Obtiene la rutina asignada a un usuario específico.
-  /// Primero lee el id_rutina del usuario, luego busca esa rutina.
-  Future<RutinaModel?> getRutinaDeUsuario(String uid) async {
-    final userDoc = await _db.collection("usuarios").doc(uid).get();
-    if (!userDoc.exists) return null;
-
-    final idRutina = userDoc.data()?["id_rutina"] as String?;
-    if (idRutina == null || idRutina.isEmpty) return null;
-
-    final rutinaDoc = await _db.collection("rutinas").doc(idRutina).get();
-    if (!rutinaDoc.exists) return null;
-
-    return RutinaModel.fromMap(
-        rutinaDoc.id, rutinaDoc.data() as Map<String, dynamic>);
+  /// Rutinas creadas por un usuario concreto
+  Stream<QuerySnapshot> getRutinasDeUsuario(String uid) {
+    return _db
+        .collection('rutinas')
+        .where('creado_por', isEqualTo: uid)
+        .snapshots();
   }
 
-  /// Stream reactivo de la rutina del usuario (se actualiza en tiempo real).
-  Stream<RutinaModel?> streamRutinaDeUsuario(String uid) {
-    return _db.collection("usuarios").doc(uid).snapshots().asyncMap(
-      (userDoc) async {
-        if (!userDoc.exists) return null;
-        final idRutina = userDoc.data()?["id_rutina"] as String?;
+  /// Todas las rutinas admin filtradas por objetivo
+  Stream<QuerySnapshot> getRutinasAdminPorObjetivo(String objetivo) {
+    return _db
+        .collection('rutinas')
+        .where('creado_por', isEqualTo: 'admin')
+        .where('objetivo', isEqualTo: objetivo)
+        .snapshots();
+  }
+
+  /// Crea una rutina (admin o usuario)
+  Future<String> crearRutina(RutinaModel rutina) async {
+    final ref = await _db.collection('rutinas').add(rutina.toMap());
+    return ref.id;
+  }
+
+  /// Elimina una rutina
+  Future<void> eliminarRutina(String idRutina) async {
+    await _db.collection('rutinas').doc(idRutina).delete();
+  }
+
+  /// Obtiene una rutina por id
+  Future<RutinaModel?> getRutinaPorId(String idRutina) async {
+    final doc = await _db.collection('rutinas').doc(idRutina).get();
+    if (!doc.exists) return null;
+    return RutinaModel.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RUTINA ACTIVA del usuario (campo en doc de usuario)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Stream reactivo de la rutina activa del usuario
+  Stream<RutinaModel?> streamRutinaActiva(String uid) {
+    return _db.collection('usuarios').doc(uid).snapshots().asyncMap(
+      (snap) async {
+        final idRutina = snap.data()?['id_rutina_activa'] as String?;
         if (idRutina == null || idRutina.isEmpty) return null;
-
-        final rutinaDoc = await _db.collection("rutinas").doc(idRutina).get();
-        if (!rutinaDoc.exists) return null;
-
-        return RutinaModel.fromMap(
-            rutinaDoc.id, rutinaDoc.data() as Map<String, dynamic>);
+        return getRutinaPorId(idRutina);
       },
     );
   }
 
-  /// Asigna una rutina existente a un usuario.
-  Future<void> asignarRutinaAUsuario(String uid, String idRutina) async {
-    await _db.collection("usuarios").doc(uid).update({
-      "id_rutina": idRutina,
+  /// Activa una rutina para el usuario
+  Future<void> activarRutina(String uid, String idRutina) async {
+    await _db.collection('usuarios').doc(uid).update({
+      'id_rutina_activa': idRutina,
     });
   }
 
-  /// Quita la rutina asignada a un usuario.
-  Future<void> removerRutinaDeUsuario(String uid) async {
-    await _db.collection("usuarios").doc(uid).update({
-      "id_rutina": FieldValue.delete(),
+  /// Abandona la rutina activa
+  Future<void> abandonarRutina(String uid) async {
+    await _db.collection('usuarios').doc(uid).update({
+      'id_rutina_activa': FieldValue.delete(),
     });
   }
 
-  /// Crea una nueva rutina y la asigna al usuario indicado.
-  Future<void> crearYAsignarRutina({
-    required String uid,
-    required String nombreRutina,
-    required String objetivo,
-    required String descripcion,
-  }) async {
-    final rutinaRef = await _db.collection("rutinas").add({
-      "nombre_rutina": nombreRutina,
-      "objetivo": objetivo,
-      "descripcion": descripcion,
-    });
-    await _db.collection("usuarios").doc(uid).update({
-      "id_rutina": rutinaRef.id,
-    });
+  // ═══════════════════════════════════════════════════════════════
+  // DIETAS — catálogo global (colección raíz "dietas")
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Todas las dietas del admin
+  Stream<QuerySnapshot> getDietasAdmin() {
+    return _db
+        .collection('dietas')
+        .where('creado_por', isEqualTo: 'admin')
+        .snapshots();
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // DIETAS
-  // ─────────────────────────────────────────────────────────────
-
-  /// Obtiene todas las dietas disponibles en el sistema.
-  Stream<QuerySnapshot> getDietas() {
-    return _db.collection("dietas").snapshots();
+  /// Dietas admin filtradas por objetivo
+  Stream<QuerySnapshot> getDietasAdminPorObjetivo(String objetivo) {
+    return _db
+        .collection('dietas')
+        .where('creado_por', isEqualTo: 'admin')
+        .where('objetivo', isEqualTo: objetivo)
+        .snapshots();
   }
 
-  /// Obtiene la dieta asignada a un usuario específico.
-  Future<DietaModel?> getDietaDeUsuario(String uid) async {
-    final userDoc = await _db.collection("usuarios").doc(uid).get();
-    if (!userDoc.exists) return null;
-
-    final idDieta = userDoc.data()?["id_dieta"] as String?;
-    if (idDieta == null || idDieta.isEmpty) return null;
-
-    final dietaDoc = await _db.collection("dietas").doc(idDieta).get();
-    if (!dietaDoc.exists) return null;
-
-    return DietaModel.fromMap(
-        dietaDoc.id, dietaDoc.data() as Map<String, dynamic>);
+  /// Dietas admin filtradas por preferencia
+  Stream<QuerySnapshot> getDietasAdminPorPreferencia(String preferencia) {
+    return _db
+        .collection('dietas')
+        .where('creado_por', isEqualTo: 'admin')
+        .where('preferencias_compatibles', arrayContains: preferencia)
+        .snapshots();
   }
 
-  /// Stream reactivo de la dieta del usuario (se actualiza en tiempo real).
-  Stream<DietaModel?> streamDietaDeUsuario(String uid) {
-    return _db.collection("usuarios").doc(uid).snapshots().asyncMap(
-      (userDoc) async {
-        if (!userDoc.exists) return null;
-        final idDieta = userDoc.data()?["id_dieta"] as String?;
+  /// Crea una dieta
+  Future<String> crearDieta(DietaModel dieta) async {
+    final ref = await _db.collection('dietas').add(dieta.toMap());
+    return ref.id;
+  }
+
+  /// Elimina una dieta
+  Future<void> eliminarDieta(String idDieta) async {
+    await _db.collection('dietas').doc(idDieta).delete();
+  }
+
+  /// Obtiene una dieta por id
+  Future<DietaModel?> getDietaPorId(String idDieta) async {
+    final doc = await _db.collection('dietas').doc(idDieta).get();
+    if (!doc.exists) return null;
+    return DietaModel.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DIETA ACTIVA del usuario
+  // ═══════════════════════════════════════════════════════════════
+
+  Stream<DietaModel?> streamDietaActiva(String uid) {
+    return _db.collection('usuarios').doc(uid).snapshots().asyncMap(
+      (snap) async {
+        final idDieta = snap.data()?['id_dieta_activa'] as String?;
         if (idDieta == null || idDieta.isEmpty) return null;
-
-        final dietaDoc = await _db.collection("dietas").doc(idDieta).get();
-        if (!dietaDoc.exists) return null;
-
-        return DietaModel.fromMap(
-            dietaDoc.id, dietaDoc.data() as Map<String, dynamic>);
+        return getDietaPorId(idDieta);
       },
     );
   }
 
-  /// Asigna una dieta existente a un usuario.
-  Future<void> asignarDietaAUsuario(String uid, String idDieta) async {
-    await _db.collection("usuarios").doc(uid).update({
-      "id_dieta": idDieta,
+  Future<void> activarDieta(String uid, String idDieta) async {
+    await _db.collection('usuarios').doc(uid).update({
+      'id_dieta_activa': idDieta,
     });
   }
 
-  /// Quita la dieta asignada a un usuario.
-  Future<void> removerDietaDeUsuario(String uid) async {
-    await _db.collection("usuarios").doc(uid).update({
-      "id_dieta": FieldValue.delete(),
+  Future<void> abandonarDieta(String uid) async {
+    await _db.collection('usuarios').doc(uid).update({
+      'id_dieta_activa': FieldValue.delete(),
     });
   }
 
-  /// Crea una nueva dieta y la asigna al usuario indicado.
-  Future<void> crearYAsignarDieta({
-    required String uid,
-    required String nombre,
-    required int calorias,
-    required String descripcion,
-  }) async {
-    final dietaRef = await _db.collection("dietas").add({
-      "nombre": nombre,
-      "calorias": calorias,
-      "descripcion": descripcion,
-    });
-    await _db.collection("usuarios").doc(uid).update({
-      "id_dieta": dietaRef.id,
-    });
-  }
+  // ═══════════════════════════════════════════════════════════════
+  // Admin: asignación directa (panel admin — users_list)
+  // ═══════════════════════════════════════════════════════════════
+
+  Future<void> adminAsignarRutina(String uid, String idRutina) =>
+      activarRutina(uid, idRutina);
+
+  Future<void> adminRemoverRutina(String uid) => abandonarRutina(uid);
+
+  Future<void> adminAsignarDieta(String uid, String idDieta) =>
+      activarDieta(uid, idDieta);
+
+  Future<void> adminRemoverDieta(String uid) => abandonarDieta(uid);
 }

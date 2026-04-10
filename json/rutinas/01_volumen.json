@@ -1,0 +1,17 @@
+{
+  "nombre_rutina": "Hipertrofia Clásica",
+  "objetivo": "Volumen",
+  "descripcion": "Enfocada en crecimiento muscular.",
+  "nivel": "Intermedio",
+  "dias_por_semana": 5,
+  "musculos_principales": ["Pecho", "Espalda", "Piernas", "Bíceps", "Tríceps"],
+  "dias": [
+    {
+      "nombre_dia": "Pecho",
+      "ejercicios": [
+        {"nombre": "Press banca", "musculo": "Pecho", "series": 4, "repeticiones": "8-12", "descanso": "90 seg"},
+        {"nombre": "Aperturas", "musculo": "Pecho", "series": 3, "repeticiones": "12-15", "descanso": "60 seg"}
+      ]
+    }
+  ]
+}

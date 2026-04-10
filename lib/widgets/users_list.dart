@@ -12,20 +12,22 @@ class UsersList extends StatelessWidget {
       stream: FirebaseFirestore.instance.collection("usuarios").snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Center(child: Text("Error cargando usuarios"));
+          return const Center(
+              child: Text("Error cargando usuarios",
+                  style: TextStyle(color: Colors.white54)));
         }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text("No hay usuarios registrados"));
+          return const Center(
+              child: Text("No hay usuarios registrados",
+                  style: TextStyle(color: Colors.white54)));
         }
-
         final users = snapshot.data!.docs;
-
         return ListView.builder(
-          itemCount: users.length,
           padding: const EdgeInsets.all(12),
+          itemCount: users.length,
           itemBuilder: (context, index) {
             final data = users[index].data() as Map<String, dynamic>;
             final user = UserModel.fromMap(data);
@@ -38,14 +40,12 @@ class UsersList extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tarjeta de usuario con info de rutina y dieta
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _TarjetaUsuario extends StatelessWidget {
   final UserModel user;
   const _TarjetaUsuario({required this.user});
 
-  void _mostrarDetalle(BuildContext context) {
+  void _verDetalle(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
@@ -53,20 +53,28 @@ class _TarjetaUsuario extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       isScrollControlled: true,
-      builder: (_) => _DetalleUsuarioSheet(user: user),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 0.92,
+        builder: (_, ctrl) => SingleChildScrollView(
+          controller: ctrl,
+          child: _DetalleUsuarioSheet(user: user),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool tieneRutina = user.idRutina != null && user.idRutina!.isNotEmpty;
-    final bool tieneDieta = user.idDieta != null && user.idDieta!.isNotEmpty;
+    final tieneRutina = user.idRutinaActiva?.isNotEmpty == true;
+    final tieneDieta = user.idDietaActiva?.isNotEmpty == true;
 
     return GestureDetector(
-      onTap: () => _mostrarDetalle(context),
+      onTap: () => _verDetalle(context),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(14),
@@ -84,38 +92,33 @@ class _TarjetaUsuario extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    user.nombre,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15),
-                  ),
+                  Text(user.nombre,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15)),
                   const SizedBox(height: 2),
-                  Text(
-                    user.correo,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
+                  Text(user.correo,
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12)),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      _BadgeAsignacion(
-                        icono: Icons.fitness_center,
-                        label: 'Rutina',
-                        asignado: tieneRutina,
-                      ),
+                      _Badge(
+                          icono: Icons.fitness_center,
+                          label: 'Rutina',
+                          activo: tieneRutina),
                       const SizedBox(width: 8),
-                      _BadgeAsignacion(
-                        icono: Icons.restaurant,
-                        label: 'Dieta',
-                        asignado: tieneDieta,
-                      ),
+                      _Badge(
+                          icono: Icons.restaurant,
+                          label: 'Dieta',
+                          activo: tieneDieta),
                     ],
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+            const Icon(Icons.chevron_right, color: Colors.white38),
           ],
         ),
       ),
@@ -123,25 +126,20 @@ class _TarjetaUsuario extends StatelessWidget {
   }
 }
 
-class _BadgeAsignacion extends StatelessWidget {
+class _Badge extends StatelessWidget {
   final IconData icono;
   final String label;
-  final bool asignado;
-
-  const _BadgeAsignacion({
-    required this.icono,
-    required this.label,
-    required this.asignado,
-  });
+  final bool activo;
+  const _Badge(
+      {required this.icono, required this.label, required this.activo});
 
   @override
   Widget build(BuildContext context) {
-    final Color color = asignado ? Colors.greenAccent : Colors.white24;
-
+    final color = activo ? Colors.greenAccent : Colors.white24;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(50),
         border: Border.all(color: color.withOpacity(0.4)),
       ),
@@ -159,7 +157,7 @@ class _BadgeAsignacion extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sheet de detalle del usuario (admin puede asignar / cambiar rutina y dieta)
+// DETALLE USUARIO — el admin asigna rutina y dieta
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DetalleUsuarioSheet extends StatelessWidget {
@@ -168,10 +166,9 @@ class _DetalleUsuarioSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firestoreService = FirestoreService();
-
+    final svc = FirestoreService();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,19 +179,18 @@ class _DetalleUsuarioSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2)),
             ),
           ),
-          const SizedBox(height: 20),
-          // Info del usuario
+          const SizedBox(height: 18),
+          // Header
           Row(
             children: [
               const CircleAvatar(
-                radius: 28,
+                radius: 26,
                 backgroundColor: Color(0xFF334155),
-                child: Icon(Icons.person, color: Colors.white54, size: 30),
+                child: Icon(Icons.person, color: Colors.white54, size: 28),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -217,79 +213,79 @@ class _DetalleUsuarioSheet extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 16),
-          // Sección rutina
-          const Text('Rutina asignada',
-              style: TextStyle(
-                  color: Colors.white54,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  letterSpacing: 1)),
-          const SizedBox(height: 8),
-          _SeccionRutinaAdmin(user: user, firestoreService: firestoreService),
           const SizedBox(height: 20),
           const Divider(color: Colors.white12),
-          const SizedBox(height: 16),
-          // Sección dieta
-          const Text('Dieta asignada',
-              style: TextStyle(
-                  color: Colors.white54,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  letterSpacing: 1)),
+          const SizedBox(height: 14),
+          _SeccionLabel(icono: Icons.fitness_center, label: 'Rutina asignada'),
           const SizedBox(height: 8),
-          _SeccionDietaAdmin(user: user, firestoreService: firestoreService),
+          _DropdownRutina(user: user, svc: svc),
+          const SizedBox(height: 20),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 14),
+          _SeccionLabel(icono: Icons.restaurant, label: 'Dieta asignada'),
+          const SizedBox(height: 8),
+          _DropdownDieta(user: user, svc: svc),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sección de administración de rutina del usuario
-// ─────────────────────────────────────────────────────────────────────────────
+class _SeccionLabel extends StatelessWidget {
+  final IconData icono;
+  final String label;
+  const _SeccionLabel({required this.icono, required this.label});
 
-class _SeccionRutinaAdmin extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icono, color: Colors.orangeAccent, size: 16),
+        const SizedBox(width: 8),
+        Text(label,
+            style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.bold,
+                fontSize: 13)),
+      ],
+    );
+  }
+}
+
+// ─── Dropdown Rutina ──────────────────────────────────────────────────────────
+
+class _DropdownRutina extends StatelessWidget {
   final UserModel user;
-  final FirestoreService firestoreService;
-
-  const _SeccionRutinaAdmin(
-      {required this.user, required this.firestoreService});
+  final FirestoreService svc;
+  const _DropdownRutina({required this.user, required this.svc});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: firestoreService.getRutinas(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const LinearProgressIndicator();
-        }
+      stream: svc.getRutinasAdmin(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const LinearProgressIndicator();
+        final docs = snap.data!.docs;
 
-        final rutinas = snapshot.data!.docs;
-
-        if (rutinas.isEmpty) {
-          return const Text('No hay rutinas registradas en el sistema.',
-              style: TextStyle(color: Colors.white38, fontSize: 12));
-        }
+        final valorActual = user.idRutinaActiva?.isNotEmpty == true
+            ? user.idRutinaActiva
+            : null;
+        final ids = docs.map((d) => d.id).toList();
+        final valorValido = (valorActual != null && ids.contains(valorActual))
+            ? valorActual
+            : null;
 
         return DropdownButtonFormField<String>(
-          value: (user.idRutina != null && user.idRutina!.isNotEmpty)
-              ? user.idRutina
-              : null,
+          value: valorValido,
           dropdownColor: const Color(0xFF1E293B),
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Sin rutina asignada',
-            hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-            prefixIcon: const Icon(Icons.fitness_center,
+            hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+            prefixIcon: Icon(Icons.fitness_center,
                 color: Colors.orangeAccent, size: 18),
             filled: true,
-            fillColor: const Color(0xFF0F172A),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
+            fillColor: Color(0xFF0F172A),
           ),
           items: [
             const DropdownMenuItem<String>(
@@ -297,31 +293,28 @@ class _SeccionRutinaAdmin extends StatelessWidget {
               child:
                   Text('Sin rutina', style: TextStyle(color: Colors.white54)),
             ),
-            ...rutinas.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
+            ...docs.map((d) {
+              final data = d.data() as Map<String, dynamic>;
               return DropdownMenuItem<String>(
-                value: doc.id,
-                child: Text(
-                  data['nombre_rutina'] ?? doc.id,
-                  style: const TextStyle(color: Colors.white),
-                ),
+                value: d.id,
+                child: Text(data['nombre_rutina'] ?? d.id,
+                    style: const TextStyle(color: Colors.white)),
               );
             }),
           ],
           onChanged: (value) async {
             if (value == null) return;
             if (value == '__ninguna__') {
-              await firestoreService.removerRutinaDeUsuario(user.id);
+              await svc.adminRemoverRutina(user.id);
             } else {
-              await firestoreService.asignarRutinaAUsuario(user.id, value);
+              await svc.adminAsignarRutina(user.id, value);
             }
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Rutina actualizada'),
-                  backgroundColor: Colors.greenAccent,
-                  duration: Duration(seconds: 2),
-                ),
+                    content: Text('Rutina actualizada'),
+                    backgroundColor: Colors.greenAccent,
+                    duration: Duration(seconds: 2)),
               );
             }
           },
@@ -331,80 +324,66 @@ class _SeccionRutinaAdmin extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sección de administración de dieta del usuario
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Dropdown Dieta ───────────────────────────────────────────────────────────
 
-class _SeccionDietaAdmin extends StatelessWidget {
+class _DropdownDieta extends StatelessWidget {
   final UserModel user;
-  final FirestoreService firestoreService;
-
-  const _SeccionDietaAdmin(
-      {required this.user, required this.firestoreService});
+  final FirestoreService svc;
+  const _DropdownDieta({required this.user, required this.svc});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: firestoreService.getDietas(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const LinearProgressIndicator();
-        }
+      stream: svc.getDietasAdmin(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const LinearProgressIndicator();
+        final docs = snap.data!.docs;
 
-        final dietas = snapshot.data!.docs;
-
-        if (dietas.isEmpty) {
-          return const Text('No hay dietas registradas en el sistema.',
-              style: TextStyle(color: Colors.white38, fontSize: 12));
-        }
+        final valorActual =
+            user.idDietaActiva?.isNotEmpty == true ? user.idDietaActiva : null;
+        final ids = docs.map((d) => d.id).toList();
+        final valorValido = (valorActual != null && ids.contains(valorActual))
+            ? valorActual
+            : null;
 
         return DropdownButtonFormField<String>(
-          value: (user.idDieta != null && user.idDieta!.isNotEmpty)
-              ? user.idDieta
-              : null,
+          value: valorValido,
           dropdownColor: const Color(0xFF1E293B),
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Sin dieta asignada',
-            hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-            prefixIcon: const Icon(Icons.restaurant,
-                color: Colors.greenAccent, size: 18),
+            hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+            prefixIcon:
+                Icon(Icons.restaurant, color: Colors.greenAccent, size: 18),
             filled: true,
-            fillColor: const Color(0xFF0F172A),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
+            fillColor: Color(0xFF0F172A),
           ),
           items: [
             const DropdownMenuItem<String>(
               value: '__ninguna__',
               child: Text('Sin dieta', style: TextStyle(color: Colors.white54)),
             ),
-            ...dietas.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
+            ...docs.map((d) {
+              final data = d.data() as Map<String, dynamic>;
               return DropdownMenuItem<String>(
-                value: doc.id,
-                child: Text(
-                  data['nombre'] ?? doc.id,
-                  style: const TextStyle(color: Colors.white),
-                ),
+                value: d.id,
+                child: Text(data['nombre'] ?? d.id,
+                    style: const TextStyle(color: Colors.white)),
               );
             }),
           ],
           onChanged: (value) async {
             if (value == null) return;
             if (value == '__ninguna__') {
-              await firestoreService.removerDietaDeUsuario(user.id);
+              await svc.adminRemoverDieta(user.id);
             } else {
-              await firestoreService.asignarDietaAUsuario(user.id, value);
+              await svc.adminAsignarDieta(user.id, value);
             }
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Dieta actualizada'),
-                  backgroundColor: Colors.greenAccent,
-                  duration: Duration(seconds: 2),
-                ),
+                    content: Text('Dieta actualizada'),
+                    backgroundColor: Colors.greenAccent,
+                    duration: Duration(seconds: 2)),
               );
             }
           },

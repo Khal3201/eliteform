@@ -1,0 +1,17 @@
+{
+  "nombre_rutina": "Definición + Cardio",
+  "objetivo": "Definición",
+  "descripcion": "Rutina para perder grasa manteniendo músculo.",
+  "nivel": "Intermedio",
+  "dias_por_semana": 5,
+  "musculos_principales": ["Full body"],
+  "dias": [
+    {
+      "nombre_dia": "Full + HIIT",
+      "ejercicios": [
+        {"nombre": "Burpees", "musculo": "Full", "series": 4, "repeticiones": "15", "descanso": "30 seg"},
+        {"nombre": "Jump squats", "musculo": "Piernas", "series": 4, "repeticiones": "12", "descanso": "30 seg"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "nombre_rutina": "Fuerza Base 5x5",
+  "objetivo": "Fuerza",
+  "descripcion": "Rutina enfocada en levantar cargas pesadas con progresión.",
+  "nivel": "Intermedio",
+  "dias_por_semana": 3,
+  "musculos_principales": ["Pecho", "Espalda", "Piernas"],
+  "dias": [
+    {
+      "nombre_dia": "Día A",
+      "ejercicios": [
+        {"nombre": "Sentadilla", "musculo": "Piernas", "series": 5, "repeticiones": "5", "descanso": "3 min"},
+        {"nombre": "Press banca", "musculo": "Pecho", "series": 5, "repeticiones": "5", "descanso": "3 min"},
+        {"nombre": "Remo barra", "musculo": "Espalda", "series": 5, "repeticiones": "5", "descanso": "2 min"}
+      ]
+    }
+  ]
+}

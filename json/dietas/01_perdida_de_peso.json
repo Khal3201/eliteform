@@ -1,0 +1,16 @@
+{
+  "nombre": "Déficit Calórico",
+  "objetivo": "Pérdida de peso",
+  "descripcion": "Dieta baja en calorías para perder grasa.",
+  "calorias": 1800,
+  "nivel": "Básica",
+  "preferencias_compatibles": ["Alta en proteínas"],
+  "comidas": [
+    {
+      "momento": "Desayuno",
+      "descripcion": "Ligero y proteico",
+      "calorias_aprox": 400,
+      "alimentos": ["Huevo", "Avena", "Fruta"]
+    }
+  ]
+}
