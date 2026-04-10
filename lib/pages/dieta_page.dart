@@ -1,9 +1,6 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:file_picker/file_picker.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../widgets/shared_widgets.dart';
@@ -33,7 +30,7 @@ const List<String> kPreferenciasDieta = [
   'Baja en carbohidratos',
 ];
 
-// ─── Helpers globales ─────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 Color colorObjetivoDieta(String obj) {
   switch (obj) {
@@ -188,34 +185,12 @@ class _DietaActivaView extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: color.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(50),
-                                  border:
-                                      Border.all(color: color.withOpacity(0.4)),
-                                ),
-                                child: Text('DIETA ACTIVA',
-                                    style: TextStyle(
-                                        color: color,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2)),
-                              ),
+                              _PillTag(label: 'DIETA ACTIVA', color: color),
                               const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white10,
-                                  borderRadius: BorderRadius.circular(50),
-                                ),
-                                child: Text(dieta.nivel,
-                                    style: const TextStyle(
-                                        color: Colors.white54, fontSize: 11)),
-                              ),
+                              _PillTag(
+                                  label: dieta.nivel,
+                                  color: Colors.white38,
+                                  small: true),
                             ],
                           ),
                           const SizedBox(height: 14),
@@ -229,7 +204,6 @@ class _DietaActivaView extends StatelessWidget {
                               style: const TextStyle(
                                   color: Colors.white54, fontSize: 13)),
                           const SizedBox(height: 16),
-                          // Calorías destacadas
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 vertical: 12, horizontal: 20),
@@ -331,7 +305,7 @@ class _DietaActivaView extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CATÁLOGO CON FILTROS (cuando no hay dieta activa)
+// CATÁLOGO CON FILTROS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _RecomendadasDietaTab extends StatefulWidget {
@@ -378,7 +352,6 @@ class _RecomendadasDietaTabState extends State<_RecomendadasDietaTab> {
                 }
                 var docs = snap.data?.docs ?? [];
 
-                // Filtro de preferencia (client-side)
                 if (_prefFiltro != null) {
                   docs = docs.where((d) {
                     final data = d.data() as Map<String, dynamic>;
@@ -413,8 +386,6 @@ class _RecomendadasDietaTabState extends State<_RecomendadasDietaTab> {
     );
   }
 }
-
-// ─── Filtros de dieta ─────────────────────────────────────────────────────────
 
 class _FiltrosDieta extends StatelessWidget {
   final String? objetivoSeleccionado;
@@ -470,7 +441,7 @@ class _FiltrosDieta extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          const Text('Preferencia alimentaria',
+          const Text('Preferencia',
               style: TextStyle(
                   color: Colors.white70,
                   fontWeight: FontWeight.bold,
@@ -508,7 +479,7 @@ class _FiltrosDieta extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TARJETA DE DIETA (reutilizable)
+// TARJETA DE DIETA
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class TarjetaDieta extends StatelessWidget {
@@ -535,20 +506,7 @@ class TarjetaDieta extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(50),
-                        border: Border.all(color: color.withOpacity(0.4)),
-                      ),
-                      child: Text(dieta.objetivo,
-                          style: TextStyle(
-                              color: color,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold)),
-                    ),
+                    _PillTag(label: dieta.objetivo, color: color),
                     const Spacer(),
                     Text('${dieta.calorias} kcal',
                         style: TextStyle(
@@ -668,23 +626,23 @@ class DetalleDietaPage extends StatelessWidget {
             ...dieta.comidas.map((c) => _ComidaView(comida: c)),
           ],
         ),
-        bottomNavigationBar: Padding(
-          padding: const EdgeInsets.all(16),
-          child: ElevatedButton.icon(
-            onPressed: () async {
-              await FirestoreService().activarDieta(uid, dieta.id);
-              if (context.mounted) Navigator.pop(context);
-            },
-            icon: const Icon(Icons.check),
-            label: const Text('Seguir esta dieta'),
-          ),
-        ),
+        bottomNavigationBar: uid != 'admin'
+            ? Padding(
+                padding: const EdgeInsets.all(16),
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await FirestoreService().activarDieta(uid, dieta.id);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Seguir esta dieta'),
+                ),
+              )
+            : null,
       ),
     );
   }
 }
-
-// ─── Resumen de dieta ─────────────────────────────────────────────────────────
 
 class ResumenDietaView extends StatelessWidget {
   final DietaModel dieta;
@@ -792,8 +750,6 @@ class ResumenDietaView extends StatelessWidget {
   }
 }
 
-// ─── Vista de una comida ──────────────────────────────────────────────────────
-
 class _ComidaView extends StatelessWidget {
   final ComidaDiaModel comida;
   const _ComidaView({required this.comida});
@@ -872,7 +828,7 @@ class _ComidaView extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CREAR DIETA
+// CREAR DIETA — manual + JSON
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class CrearDietaPage extends StatefulWidget {
@@ -936,31 +892,39 @@ class _CrearDietaPageState extends State<CrearDietaPage>
 
   Future<void> _importarJson() async {
     setState(() => _errorJson = null);
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-    );
-    if (result == null || result.files.single.path == null) return;
     try {
-      final content = await File(result.files.single.path!).readAsString();
-      final Map<String, dynamic> json = jsonDecode(content);
+      final json = await leerArchivoJson(); // usa bytes, no File
+
       if (json['nombre'] == null || json['objetivo'] == null) {
         setState(() => _errorJson =
             'El JSON debe incluir los campos "nombre" y "objetivo".');
         return;
       }
+
       setState(() => _guardando = true);
+
       final dieta = DietaModel.fromMap('', {
         ...json,
         'creado_por': widget.esAdmin ? 'admin' : widget.uid,
       });
+
       await FirestoreService().crearDieta(dieta);
       setState(() => _guardando = false);
-      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('✓ Dieta importada correctamente'),
+              backgroundColor: Colors.greenAccent),
+        );
+        Navigator.pop(context);
+      }
     } catch (e) {
+      if (e.toString().contains('__cancelado__')) return;
       setState(() {
         _guardando = false;
-        _errorJson = 'Error al leer el JSON: $e';
+        _errorJson =
+            'Error al leer el archivo: ${e.toString().replaceAll('Exception: ', '')}';
       });
     }
   }
@@ -998,14 +962,14 @@ class _CrearDietaPageState extends State<CrearDietaPage>
                     ctrl: _descCtrl,
                     label: 'Descripción',
                     icono: Icons.notes,
-                    maxLines: 3),
+                    maxLines: 2),
                 const SizedBox(height: 14),
                 CampoTexto(
                     ctrl: _calCtrl,
                     label: 'Calorías diarias (kcal)',
                     icono: Icons.local_fire_department,
                     keyboardType: TextInputType.number),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 const SeccionLabel(titulo: 'Objetivo'),
                 const SizedBox(height: 8),
                 Wrap(
@@ -1025,7 +989,7 @@ class _CrearDietaPageState extends State<CrearDietaPage>
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 const SeccionLabel(titulo: 'Nivel'),
                 const SizedBox(height: 8),
                 Wrap(
@@ -1043,7 +1007,7 @@ class _CrearDietaPageState extends State<CrearDietaPage>
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 const SeccionLabel(
                     titulo: 'Preferencias alimentarias compatibles'),
                 const SizedBox(height: 8),
@@ -1088,7 +1052,7 @@ class _CrearDietaPageState extends State<CrearDietaPage>
                     label: Text(_guardando ? 'Guardando...' : 'Guardar dieta'),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -1104,7 +1068,7 @@ class _CrearDietaPageState extends State<CrearDietaPage>
   }
 }
 
-// ─── Widget auxiliar interno ──────────────────────────────────────────────────
+// ─── Widgets auxiliares internos ──────────────────────────────────────────────
 
 class _Bloque extends StatelessWidget {
   final Widget child;
@@ -1118,6 +1082,36 @@ class _Bloque extends StatelessWidget {
           color: const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(14)),
       child: child,
+    );
+  }
+}
+
+class _PillTag extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool small;
+  const _PillTag(
+      {required this.label, required this.color, this.small = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: small ? 8 : 10, vertical: small ? 3 : 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: small ? 10 : 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: small ? 0 : 0.8,
+        ),
+      ),
     );
   }
 }

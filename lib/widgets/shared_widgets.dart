@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 
 // ─── EmptyState ───────────────────────────────────────────────────────────────
 
@@ -6,11 +8,12 @@ class EmptyState extends StatelessWidget {
   final IconData icono;
   final String mensaje;
   final String sub;
-  const EmptyState(
-      {super.key,
-      required this.icono,
-      required this.mensaje,
-      required this.sub});
+  const EmptyState({
+    super.key,
+    required this.icono,
+    required this.mensaje,
+    required this.sub,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,16 +25,20 @@ class EmptyState extends StatelessWidget {
           children: [
             Icon(icono, color: Colors.white24, size: 56),
             const SizedBox(height: 16),
-            Text(mensaje,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              mensaje,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 6),
-            Text(sub,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white38, fontSize: 13)),
+            Text(
+              sub,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white38, fontSize: 13),
+            ),
           ],
         ),
       ),
@@ -47,13 +54,14 @@ class ChipFiltro extends StatelessWidget {
   final Color color;
   final bool seleccionado;
   final VoidCallback onTap;
-  const ChipFiltro(
-      {super.key,
-      required this.label,
-      required this.icono,
-      required this.color,
-      required this.seleccionado,
-      required this.onTap});
+  const ChipFiltro({
+    super.key,
+    required this.label,
+    required this.icono,
+    required this.color,
+    required this.seleccionado,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -63,9 +71,8 @@ class ChipFiltro extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: seleccionado
-              ? color.withOpacity(0.2)
-              : const Color(0xFF1E293B),
+          color:
+              seleccionado ? color.withOpacity(0.2) : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(50),
           border: Border.all(
               color: seleccionado ? color : Colors.white12,
@@ -74,16 +81,16 @@ class ChipFiltro extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icono,
-                color: seleccionado ? color : Colors.white38, size: 14),
+            Icon(icono, color: seleccionado ? color : Colors.white38, size: 14),
             const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    color: seleccionado ? color : Colors.white54,
-                    fontSize: 12,
-                    fontWeight: seleccionado
-                        ? FontWeight.bold
-                        : FontWeight.normal)),
+            Text(
+              label,
+              style: TextStyle(
+                color: seleccionado ? color : Colors.white54,
+                fontSize: 12,
+                fontWeight: seleccionado ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
           ],
         ),
       ),
@@ -98,12 +105,13 @@ class InfoFila extends StatelessWidget {
   final String label;
   final String valor;
   final Color? valorColor;
-  const InfoFila(
-      {super.key,
-      required this.icono,
-      required this.label,
-      required this.valor,
-      this.valorColor});
+  const InfoFila({
+    super.key,
+    required this.icono,
+    required this.label,
+    required this.valor,
+    this.valorColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -114,11 +122,13 @@ class InfoFila extends StatelessWidget {
         Text(label,
             style: const TextStyle(color: Colors.white54, fontSize: 13)),
         const Spacer(),
-        Text(valor,
-            style: TextStyle(
-                color: valorColor ?? Colors.white70,
-                fontSize: 13,
-                fontWeight: FontWeight.w500)),
+        Text(
+          valor,
+          style: TextStyle(
+              color: valorColor ?? Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w500),
+        ),
       ],
     );
   }
@@ -132,11 +142,11 @@ class SeccionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(titulo,
-        style: const TextStyle(
-            color: Colors.white70,
-            fontWeight: FontWeight.bold,
-            fontSize: 13));
+    return Text(
+      titulo,
+      style: const TextStyle(
+          color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13),
+    );
   }
 }
 
@@ -148,13 +158,14 @@ class CampoTexto extends StatelessWidget {
   final IconData icono;
   final int maxLines;
   final TextInputType? keyboardType;
-  const CampoTexto(
-      {super.key,
-      required this.ctrl,
-      required this.label,
-      required this.icono,
-      this.maxLines = 1,
-      this.keyboardType});
+  const CampoTexto({
+    super.key,
+    required this.ctrl,
+    required this.label,
+    required this.icono,
+    this.maxLines = 1,
+    this.keyboardType,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -193,8 +204,9 @@ class SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
 }
 
 // ─── JsonImportTab ────────────────────────────────────────────────────────────
+// Usa result.files.single.bytes para compatibilidad web + mobile
 
-const String kJsonEjemploRutina = '''
+const String kJsonEjemploRutina = r'''
 {
   "nombre_rutina": "Rutina de Fuerza 3 días",
   "objetivo": "Fuerza",
@@ -219,40 +231,60 @@ const String kJsonEjemploRutina = '''
   ]
 }''';
 
-const String kJsonEjemploDieta = '''
+const String kJsonEjemploDieta = r'''
 {
   "nombre": "Dieta de Volumen",
   "calorias": 3000,
-  "descripcion": "Plan calórico para ganar masa muscular",
+  "descripcion": "Plan calorico para ganar masa muscular",
   "objetivo": "Volumen",
   "nivel": "Intermedia",
   "preferencias_compatibles": ["Sin restricciones"],
   "comidas": [
     {
       "momento": "Desayuno",
-      "descripcion": "Desayuno alto en proteínas",
+      "descripcion": "Desayuno alto en proteinas",
       "calorias_aprox": 700,
-      "alimentos": ["Avena", "Huevos", "Leche", "Plátano"]
+      "alimentos": ["Avena", "Huevos", "Leche", "Platano"]
     }
   ]
 }''';
+
+/// Lee un archivo JSON seleccionado por el usuario.
+/// Funciona en web (usa bytes) y mobile/desktop (usa bytes también).
+/// Devuelve el Map parseado, o lanza Exception si hay error.
+Future<Map<String, dynamic>> leerArchivoJson() async {
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['json'],
+    withData: true, // <-- CLAVE: carga los bytes en memoria (web + mobile)
+  );
+  if (result == null || result.files.isEmpty) {
+    throw Exception('__cancelado__');
+  }
+  final bytes = result.files.single.bytes;
+  if (bytes == null || bytes.isEmpty) {
+    throw Exception('No se pudo leer el archivo. Intenta de nuevo.');
+  }
+  final content = utf8.decode(bytes);
+  return jsonDecode(content) as Map<String, dynamic>;
+}
 
 class JsonImportTab extends StatelessWidget {
   final String tipo; // 'rutina' | 'dieta'
   final VoidCallback onImportar;
   final bool cargando;
   final String? error;
-  const JsonImportTab(
-      {super.key,
-      required this.tipo,
-      required this.onImportar,
-      required this.cargando,
-      this.error});
+  const JsonImportTab({
+    super.key,
+    required this.tipo,
+    required this.onImportar,
+    required this.cargando,
+    this.error,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final ejemplo =
-        tipo == 'rutina' ? kJsonEjemploRutina : kJsonEjemploDieta;
+    final ejemplo = tipo == 'rutina' ? kJsonEjemploRutina : kJsonEjemploDieta;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -276,19 +308,18 @@ class JsonImportTab extends StatelessWidget {
                     'Selecciona un archivo .json con la estructura de '
                     '${tipo == 'rutina' ? 'la rutina' : 'la dieta'} '
                     'para importarla directamente.',
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 13),
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          const Text('Estructura requerida del JSON:',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14)),
+          const Text(
+            'Estructura requerida del JSON:',
+            style: TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+          ),
           const SizedBox(height: 10),
           Container(
             width: double.infinity,
@@ -301,10 +332,11 @@ class JsonImportTab extends StatelessWidget {
             child: Text(
               ejemplo,
               style: const TextStyle(
-                  color: Colors.greenAccent,
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  height: 1.5),
+                color: Colors.greenAccent,
+                fontFamily: 'monospace',
+                fontSize: 11,
+                height: 1.5,
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -323,9 +355,12 @@ class JsonImportTab extends StatelessWidget {
                       color: Colors.redAccent, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
-                      child: Text(error!,
-                          style: const TextStyle(
-                              color: Colors.redAccent, fontSize: 12))),
+                    child: Text(
+                      error!,
+                      style: const TextStyle(
+                          color: Colors.redAccent, fontSize: 12),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -338,11 +373,11 @@ class JsonImportTab extends StatelessWidget {
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.black))
+                          strokeWidth: 2, color: Colors.black),
+                    )
                   : const Icon(Icons.upload_file),
-              label: Text(cargando
-                  ? 'Importando...'
-                  : 'Seleccionar archivo JSON'),
+              label:
+                  Text(cargando ? 'Importando...' : 'Seleccionar archivo JSON'),
             ),
           ),
         ],
@@ -369,9 +404,7 @@ class ChipMusculo extends StatelessWidget {
       ),
       child: Text(musculo,
           style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w600)),
+              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -402,12 +435,9 @@ class StatBox extends StatelessWidget {
           children: [
             Text(valor,
                 style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16)),
+                    color: color, fontWeight: FontWeight.bold, fontSize: 16)),
             Text(label,
-                style: const TextStyle(
-                    color: Colors.white54, fontSize: 11)),
+                style: const TextStyle(color: Colors.white54, fontSize: 11)),
           ],
         ),
       ),
@@ -438,7 +468,7 @@ class MiniStat extends StatelessWidget {
   }
 }
 
-// ─── ChipPref (preferencia alimentaria) ──────────────────────────────────────
+// ─── ChipPref ─────────────────────────────────────────────────────────────────
 
 class ChipPref extends StatelessWidget {
   final String label;
@@ -456,9 +486,7 @@ class ChipPref extends StatelessWidget {
       ),
       child: Text(label,
           style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w600)),
+              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -481,12 +509,9 @@ class StatDieta extends StatelessWidget {
       children: [
         Text(valor,
             style: TextStyle(
-                color: color,
-                fontSize: 18,
-                fontWeight: FontWeight.bold)),
+                color: color, fontSize: 18, fontWeight: FontWeight.bold)),
         Text(label,
-            style: const TextStyle(
-                color: Colors.white54, fontSize: 11)),
+            style: const TextStyle(color: Colors.white54, fontSize: 11)),
       ],
     );
   }
@@ -515,13 +540,10 @@ class MacroBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label,
-                style: const TextStyle(
-                    color: Colors.white70, fontSize: 12)),
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
             Text('~${gramos}g',
                 style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12)),
+                    color: color, fontWeight: FontWeight.bold, fontSize: 12)),
           ],
         ),
         const SizedBox(height: 4),
