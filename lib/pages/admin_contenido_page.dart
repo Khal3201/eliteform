@@ -3,8 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../widgets/shared_widgets.dart';
-import 'rutina_page.dart' show DetalleRutinaPage, CrearRutinaPage;
-import 'dieta_page.dart' show DetalleDietaPage, CrearDietaPage;
+import 'rutina_page.dart'
+    show DetalleRutinaPage, CrearRutinaPage, EditarRutinaPage;
+import 'dieta_page.dart' show DetalleDietaPage, CrearDietaPage, EditarDietaPage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANEL ADMIN: RUTINAS
@@ -78,6 +79,31 @@ class _AdminRutinaCard extends StatelessWidget {
     }
   }
 
+  Future<void> _eliminar(BuildContext context) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            title: const Text('Eliminar rutina',
+                style: TextStyle(color: Colors.white)),
+            content: Text('¿Eliminar "${rutina.nombreRutina}"?',
+                style: const TextStyle(color: Colors.white70)),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancelar',
+                      style: TextStyle(color: Colors.white54))),
+              ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Eliminar')),
+            ],
+          ),
+        ) ??
+        false;
+    if (ok) await FirestoreService().eliminarRutina(rutina.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -87,72 +113,69 @@ class _AdminRutinaCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _color.withOpacity(0.3)),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: _color.withOpacity(0.15),
-          child: Icon(Icons.fitness_center, color: _color, size: 20),
-        ),
-        title: Text(rutina.nombreRutina,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text('${rutina.objetivo} · ${rutina.nivel}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12)),
-            Text(
-                '${rutina.diasPorSemana} días/sem · '
-                '${rutina.dias.length} días definidos',
-                style: const TextStyle(color: Colors.white38, fontSize: 11)),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.visibility_outlined,
-                  color: Colors.white54, size: 20),
-              onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) =>
-                          DetalleRutinaPage(rutina: rutina, uid: 'admin'))),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: _color.withOpacity(0.15),
+              child: Icon(Icons.fitness_center, color: _color, size: 20),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline,
-                  color: Colors.redAccent, size: 20),
-              onPressed: () async {
-                final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        backgroundColor: const Color(0xFF1E293B),
-                        title: const Text('Eliminar rutina',
-                            style: TextStyle(color: Colors.white)),
-                        content: Text('¿Eliminar "${rutina.nombreRutina}"?',
-                            style: const TextStyle(color: Colors.white70)),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancelar',
-                                  style: TextStyle(color: Colors.white54))),
-                          ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red),
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Eliminar')),
-                        ],
-                      ),
-                    ) ??
-                    false;
-                if (ok) {
-                  await FirestoreService().eliminarRutina(rutina.id);
-                }
-              },
+            title: Text(rutina.nombreRutina,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text('${rutina.objetivo} · ${rutina.nivel}',
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 12)),
+                Text(
+                    '${rutina.diasPorSemana} días/sem · '
+                    '${rutina.dias.length} días · '
+                    '${rutina.dias.fold(0, (s, d) => s + d.ejercicios.length)} ejercicios',
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 11)),
+              ],
             ),
-          ],
-        ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              DetalleRutinaPage(rutina: rutina, uid: 'admin'))),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text('Ver'),
+                ),
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => EditarRutinaPage(rutina: rutina))),
+                  icon: const Icon(Icons.edit_outlined,
+                      size: 16, color: Colors.amberAccent),
+                  label: const Text('Editar',
+                      style: TextStyle(color: Colors.amberAccent)),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => _eliminar(context),
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -228,6 +251,31 @@ class _AdminDietaCard extends StatelessWidget {
     }
   }
 
+  Future<void> _eliminar(BuildContext context) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            title: const Text('Eliminar dieta',
+                style: TextStyle(color: Colors.white)),
+            content: Text('¿Eliminar "${dieta.nombre}"?',
+                style: const TextStyle(color: Colors.white70)),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancelar',
+                      style: TextStyle(color: Colors.white54))),
+              ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Eliminar')),
+            ],
+          ),
+        ) ??
+        false;
+    if (ok) await FirestoreService().eliminarDieta(dieta.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -237,70 +285,66 @@ class _AdminDietaCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _color.withOpacity(0.3)),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: _color.withOpacity(0.15),
-          child: Icon(Icons.restaurant, color: _color, size: 20),
-        ),
-        title: Text(dieta.nombre,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text('${dieta.objetivo} · ${dieta.nivel}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12)),
-            Text('${dieta.calorias} kcal · ${dieta.comidas.length} comidas',
-                style: const TextStyle(color: Colors.white38, fontSize: 11)),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.visibility_outlined,
-                  color: Colors.white54, size: 20),
-              onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) =>
-                          DetalleDietaPage(dieta: dieta, uid: 'admin'))),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: _color.withOpacity(0.15),
+              child: Icon(Icons.restaurant, color: _color, size: 20),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline,
-                  color: Colors.redAccent, size: 20),
-              onPressed: () async {
-                final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        backgroundColor: const Color(0xFF1E293B),
-                        title: const Text('Eliminar dieta',
-                            style: TextStyle(color: Colors.white)),
-                        content: Text('¿Eliminar "${dieta.nombre}"?',
-                            style: const TextStyle(color: Colors.white70)),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancelar',
-                                  style: TextStyle(color: Colors.white54))),
-                          ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red),
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Eliminar')),
-                        ],
-                      ),
-                    ) ??
-                    false;
-                if (ok) {
-                  await FirestoreService().eliminarDieta(dieta.id);
-                }
-              },
+            title: Text(dieta.nombre,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text('${dieta.objetivo} · ${dieta.nivel}',
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 12)),
+                Text('${dieta.calorias} kcal · ${dieta.comidas.length} comidas',
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 11)),
+              ],
             ),
-          ],
-        ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              DetalleDietaPage(dieta: dieta, uid: 'admin'))),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text('Ver'),
+                ),
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => EditarDietaPage(dieta: dieta))),
+                  icon: const Icon(Icons.edit_outlined,
+                      size: 16, color: Colors.amberAccent),
+                  label: const Text('Editar',
+                      style: TextStyle(color: Colors.amberAccent)),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => _eliminar(context),
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

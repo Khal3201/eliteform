@@ -290,26 +290,31 @@ class _RutinaTabs extends StatelessWidget {
       length: 2,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: AppBar(
-            elevation: 0,
-            backgroundColor: const Color(0xFF020617),
-            bottom: const TabBar(
-              indicatorColor: Colors.orangeAccent,
-              labelColor: Colors.orangeAccent,
-              unselectedLabelColor: Colors.white38,
-              tabs: [
-                Tab(icon: Icon(Icons.person, size: 18), text: 'Mis Rutinas'),
-                Tab(icon: Icon(Icons.star, size: 18), text: 'Recomendadas'),
-              ],
-            ),
-          ),
-        ),
-        body: TabBarView(
+        // FIX: No usar AppBar+PreferredSize con altura fija.
+        // Tab(icon+text) necesita ~72px, no 48px → overflow.
+        // Solución: Column con Material TabBar + Expanded TabBarView.
+        body: Column(
           children: [
-            _MisRutinasTab(uid: uid),
-            _RecomendadasTab(uid: uid),
+            Material(
+              color: const Color(0xFF020617),
+              child: const TabBar(
+                indicatorColor: Colors.orangeAccent,
+                labelColor: Colors.orangeAccent,
+                unselectedLabelColor: Colors.white38,
+                tabs: [
+                  Tab(icon: Icon(Icons.person, size: 18), text: 'Mis Rutinas'),
+                  Tab(icon: Icon(Icons.star, size: 18), text: 'Recomendadas'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _MisRutinasTab(uid: uid),
+                  _RecomendadasTab(uid: uid),
+                ],
+              ),
+            ),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
@@ -1673,6 +1678,190 @@ class _PillTag extends StatelessWidget {
           fontWeight: FontWeight.bold,
           letterSpacing: small ? 0 : 0.8,
         ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EDITAR RUTINA EXISTENTE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class EditarRutinaPage extends StatefulWidget {
+  final RutinaModel rutina;
+  const EditarRutinaPage({super.key, required this.rutina});
+
+  @override
+  State<EditarRutinaPage> createState() => _EditarRutinaPageState();
+}
+
+class _EditarRutinaPageState extends State<EditarRutinaPage> {
+  late TextEditingController _nombreCtrl;
+  late TextEditingController _descCtrl;
+  late String _objetivo;
+  late String _nivel;
+  late int _diasSemana;
+  late List<String> _musculos;
+  late List<_DiaTemp> _dias;
+  bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.rutina;
+    _nombreCtrl = TextEditingController(text: r.nombreRutina);
+    _descCtrl = TextEditingController(text: r.descripcion);
+    _objetivo = r.objetivo;
+    _nivel = r.nivel;
+    _diasSemana = r.diasPorSemana;
+    _musculos = List<String>.from(r.musculosPrincipales);
+    _dias = r.dias
+        .map((d) => _DiaTemp(
+              nombreDia: d.nombreDia,
+              ejercicios: List<EjercicioRutinaModel>.from(d.ejercicios),
+            ))
+        .toList();
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    if (_nombreCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Escribe un nombre para la rutina')));
+      return;
+    }
+    setState(() => _guardando = true);
+
+    final dias = _dias
+        .map((d) => DiaRutinaModel(
+              nombreDia: d.nombreDia,
+              ejercicios: d.ejercicios,
+            ))
+        .toList();
+
+    final data = RutinaModel(
+      id: widget.rutina.id,
+      nombreRutina: _nombreCtrl.text.trim(),
+      objetivo: _objetivo,
+      descripcion: _descCtrl.text.trim(),
+      musculosPrincipales: _musculos,
+      nivel: _nivel,
+      diasPorSemana: _diasSemana,
+      creadoPor: widget.rutina.creadoPor,
+      dias: dias,
+    );
+
+    await FirestoreService().actualizarRutina(widget.rutina.id, data.toMap());
+    setState(() => _guardando = false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Rutina actualizada'),
+            backgroundColor: Colors.greenAccent),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  void _agregarDia() => setState(() => _dias
+      .add(_DiaTemp(nombreDia: 'Día ${_dias.length + 1}', ejercicios: [])));
+
+  void _eliminarDia(int i) => setState(() => _dias.removeAt(i));
+
+  Future<void> _editarNombreDia(int i) async {
+    final ctrl = TextEditingController(text: _dias[i].nombreDia);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title:
+            const Text('Nombre del día', style: TextStyle(color: Colors.white)),
+        content: TextField(controller: ctrl, autofocus: true),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar',
+                  style: TextStyle(color: Colors.white54))),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+              child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      setState(() => _dias[i].nombreDia = result);
+    }
+  }
+
+  Future<void> _agregarEjercicio(int diaI) async {
+    final result = await Navigator.push<EjercicioRutinaModel>(
+        context, MaterialPageRoute(builder: (_) => const _FormEjercicioPage()));
+    if (result != null) setState(() => _dias[diaI].ejercicios.add(result));
+  }
+
+  Future<void> _editarEjercicio(int diaI, int ejI) async {
+    final result = await Navigator.push<EjercicioRutinaModel>(
+        context,
+        MaterialPageRoute(
+            builder: (_) =>
+                _FormEjercicioPage(ejercicio: _dias[diaI].ejercicios[ejI])));
+    if (result != null) setState(() => _dias[diaI].ejercicios[ejI] = result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Editar Rutina'),
+        actions: [
+          TextButton(
+            onPressed: _guardando ? null : _guardar,
+            child: _guardando
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.orangeAccent))
+                : const Text('Guardar',
+                    style: TextStyle(
+                        color: Colors.orangeAccent,
+                        fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      body: _FormManual(
+        nombreCtrl: _nombreCtrl,
+        descCtrl: _descCtrl,
+        objetivo: _objetivo,
+        nivel: _nivel,
+        diasSemana: _diasSemana,
+        musculos: _musculos,
+        dias: _dias,
+        guardando: _guardando,
+        onObjetivo: (v) => setState(() => _objetivo = v),
+        onNivel: (v) => setState(() => _nivel = v),
+        onDiasSemana: (v) => setState(() => _diasSemana = v),
+        onMusculos: (m, v) => setState(() {
+          if (v) {
+            _musculos.add(m);
+          } else {
+            _musculos.remove(m);
+          }
+        }),
+        onAgregarDia: _agregarDia,
+        onEliminarDia: _eliminarDia,
+        onEditarNombreDia: _editarNombreDia,
+        onAgregarEjercicio: _agregarEjercicio,
+        onEditarEjercicio: _editarEjercicio,
+        onEliminarEjercicio: (dI, eI) =>
+            setState(() => _dias[dI].ejercicios.removeAt(eI)),
+        onGuardar: _guardar,
       ),
     );
   }

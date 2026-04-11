@@ -1115,3 +1115,236 @@ class _PillTag extends StatelessWidget {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EDITAR DIETA EXISTENTE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class EditarDietaPage extends StatefulWidget {
+  final DietaModel dieta;
+  const EditarDietaPage({super.key, required this.dieta});
+
+  @override
+  State<EditarDietaPage> createState() => _EditarDietaPageState();
+}
+
+class _EditarDietaPageState extends State<EditarDietaPage> {
+  late TextEditingController _nombreCtrl;
+  late TextEditingController _descCtrl;
+  late TextEditingController _calCtrl;
+  late String _objetivo;
+  late String _nivel;
+  late List<String> _preferencias;
+  bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.dieta;
+    _nombreCtrl = TextEditingController(text: d.nombre);
+    _descCtrl = TextEditingController(text: d.descripcion);
+    _calCtrl = TextEditingController(text: '${d.calorias}');
+    _objetivo = d.objetivo;
+    _nivel = d.nivel;
+    _preferencias = List<String>.from(d.preferenciasCompatibles);
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _descCtrl.dispose();
+    _calCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    if (_nombreCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Escribe un nombre para la dieta')));
+      return;
+    }
+    setState(() => _guardando = true);
+
+    final data = DietaModel(
+      id: widget.dieta.id,
+      nombre: _nombreCtrl.text.trim(),
+      calorias: int.tryParse(_calCtrl.text) ?? widget.dieta.calorias,
+      descripcion: _descCtrl.text.trim(),
+      objetivo: _objetivo,
+      preferenciasCompatibles: _preferencias,
+      nivel: _nivel,
+      creadoPor: widget.dieta.creadoPor,
+      comidas: widget.dieta.comidas,
+    );
+
+    await FirestoreService().actualizarDieta(widget.dieta.id, data.toMap());
+    setState(() => _guardando = false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Dieta actualizada'),
+            backgroundColor: Colors.greenAccent),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Editar Dieta'),
+        actions: [
+          TextButton(
+            onPressed: _guardando ? null : _guardar,
+            child: _guardando
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.orangeAccent))
+                : const Text('Guardar',
+                    style: TextStyle(
+                        color: Colors.orangeAccent,
+                        fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CampoTexto(
+                ctrl: _nombreCtrl,
+                label: 'Nombre de la dieta',
+                icono: Icons.restaurant_menu),
+            const SizedBox(height: 14),
+            CampoTexto(
+                ctrl: _descCtrl,
+                label: 'Descripción',
+                icono: Icons.notes,
+                maxLines: 2),
+            const SizedBox(height: 14),
+            CampoTexto(
+                ctrl: _calCtrl,
+                label: 'Calorías diarias (kcal)',
+                icono: Icons.local_fire_department,
+                keyboardType: TextInputType.number),
+            const SizedBox(height: 16),
+
+            const SeccionLabel(titulo: 'Objetivo'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: kObjetivosDieta.map((obj) {
+                final sel = _objetivo == obj;
+                return ChoiceChip(
+                  label: Text(obj),
+                  selected: sel,
+                  selectedColor: Colors.orangeAccent,
+                  labelStyle: TextStyle(
+                      color: sel ? Colors.black : Colors.white70,
+                      fontWeight: FontWeight.bold),
+                  backgroundColor: const Color(0xFF1E293B),
+                  onSelected: (_) => setState(() => _objetivo = obj),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            const SeccionLabel(titulo: 'Nivel'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: kNivelesDieta.map((n) {
+                final sel = _nivel == n;
+                return ChoiceChip(
+                  label: Text(n),
+                  selected: sel,
+                  selectedColor: Colors.orangeAccent,
+                  labelStyle:
+                      TextStyle(color: sel ? Colors.black : Colors.white70),
+                  backgroundColor: const Color(0xFF1E293B),
+                  onSelected: (_) => setState(() => _nivel = n),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            const SeccionLabel(titulo: 'Preferencias alimentarias compatibles'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: kPreferenciasDieta.map((p) {
+                final sel = _preferencias.contains(p);
+                return FilterChip(
+                  label: Text(p),
+                  selected: sel,
+                  selectedColor: Colors.greenAccent.withOpacity(0.2),
+                  checkmarkColor: Colors.greenAccent,
+                  labelStyle: TextStyle(
+                      color: sel ? Colors.greenAccent : Colors.white54,
+                      fontSize: 12),
+                  backgroundColor: const Color(0xFF1E293B),
+                  side: BorderSide(
+                      color: sel ? Colors.greenAccent : Colors.white12),
+                  onSelected: (v) => setState(() {
+                    if (v) {
+                      _preferencias.add(p);
+                    } else {
+                      _preferencias.remove(p);
+                    }
+                  }),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 28),
+
+            // Nota sobre comidas (editarlas requeriría una UI más compleja)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.blueAccent.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blueAccent.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.info_outline, color: Colors.blueAccent, size: 18),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Las comidas individuales se preservan. Para modificarlas, '
+                      'elimina esta dieta y crea una nueva con el JSON actualizado.',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _guardando ? null : _guardar,
+                icon: _guardando
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.black))
+                    : const Icon(Icons.save),
+                label: Text(_guardando ? 'Guardando...' : 'Guardar cambios'),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
