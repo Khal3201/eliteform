@@ -213,4 +213,59 @@ class FirestoreService {
     }
     await batch.commit();
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // GYM ACCESS — Registro de entrada y salida
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Stream: personas dentro del gym ahora
+  Stream<QuerySnapshot> streamPersonasDentroGym() {
+    return _db
+        .collection('usuarios')
+        .where('dentro_del_gym', isEqualTo: true)
+        .snapshots();
+  }
+
+  /// Registra la entrada de un usuario al gym (con batch)
+  Future<void> registrarEntradaGym(String uid, String nombre) async {
+    final batch = _db.batch();
+    batch.update(_db.collection('usuarios').doc(uid), {
+      'dentro_del_gym': true,
+      'ultima_entrada': FieldValue.serverTimestamp(),
+    });
+    final visitaRef = _db.collection('visitas_gym').doc();
+    batch.set(visitaRef, {
+      'uid_usuario': uid,
+      'nombre_usuario': nombre,
+      'tipo': 'ENTRADA',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  /// Registra la salida de un usuario del gym (con batch)
+  Future<void> registrarSalidaGym(String uid, String nombre) async {
+    final batch = _db.batch();
+    batch.update(_db.collection('usuarios').doc(uid), {
+      'dentro_del_gym': false,
+      'ultima_salida': FieldValue.serverTimestamp(),
+    });
+    final visitaRef = _db.collection('visitas_gym').doc();
+    batch.set(visitaRef, {
+      'uid_usuario': uid,
+      'nombre_usuario': nombre,
+      'tipo': 'SALIDA',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  /// Historial reciente de visitas
+  Stream<QuerySnapshot> streamHistorialGym({int limite = 20}) {
+    return _db
+        .collection('visitas_gym')
+        .orderBy('timestamp', descending: true)
+        .limit(limite)
+        .snapshots();
+  }
 }
