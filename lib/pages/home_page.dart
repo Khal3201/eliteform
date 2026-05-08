@@ -6,8 +6,9 @@ import 'rutina_page.dart';
 import 'dieta_page.dart';
 import 'ejercicios_page.dart';
 import 'planes_page.dart';
-import 'inicio_page.dart'; // ← NUEVO: pantalla de inicio
-import 'qr_acceso_page.dart'; // ← NUEVO: QR de entrada/salida
+import 'inicio_page.dart';
+import 'qr_acceso_page.dart';
+import 'aviso_privacidad_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,26 +20,58 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
-  // ORDEN: Inicio · Rutina · Dieta · Ejercicios · QR Acceso · Planes · Perfil
   final List<Widget> _pages = const [
-    InicioPage(), // 0 - Página principal con contador y eventos
-    RutinaPage(), // 1 - Rutinas
-    DietaPage(), // 2 - Dietas
-    EjerciciosPage(), // 3 - Ejercicios
-    QrAccesoPage(), // 4 - QR de acceso al gym
-    PlanesPage(), // 5 - Planes de membresía
-    PerfilPage(), // 6 - Perfil del usuario
+    InicioPage(),
+    RutinaPage(),
+    DietaPage(),
+    EjerciciosPage(),
+    QrAccesoPage(),
+    PlanesPage(),
+    PerfilPage(),
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
+  // LOGOUT SEGURO:
+  // 1. FirebaseAuth.signOut() invalida el token JWT en el servidor de Firebase.
+  // 2. Navigator.pushReplacement() limpia el stack de navegación completo,
+  //    impidiendo que el usuario regrese a pantallas protegidas con el botón atrás.
+  // 3. El check 'mounted' evita errores si el widget ya fue destruido.
   Future<void> logout() async {
+    // Confirmación antes de cerrar sesión
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title:
+            const Text('Cerrar sesión', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          '¿Estás seguro de que quieres cerrar tu sesión?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child:
+                const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    // Invalidar sesión en Firebase (servidor)
     await FirebaseAuth.instance.signOut();
+
     if (mounted) {
+      // Limpiar el stack completo y redirigir a Login
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -52,9 +85,52 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('EliteForm'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: logout,
+          // Menú de opciones (tres puntos)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            color: const Color(0xFF1E293B),
+            onSelected: (value) {
+              switch (value) {
+                case 'privacidad':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AvisoPrivacidadPage()),
+                  );
+                  break;
+                case 'logout':
+                  logout();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              // Opción: Aviso de Privacidad — acceso permanente
+              const PopupMenuItem<String>(
+                value: 'privacidad',
+                child: Row(
+                  children: [
+                    Icon(Icons.privacy_tip_outlined,
+                        color: Colors.orangeAccent, size: 18),
+                    SizedBox(width: 10),
+                    Text('Aviso de Privacidad',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              // Opción: Cerrar sesión
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.redAccent, size: 18),
+                    SizedBox(width: 10),
+                    Text('Cerrar sesión',
+                        style: TextStyle(color: Colors.redAccent)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -65,7 +141,7 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: Colors.white38,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed, // necesario para 7 ítems
+        type: BottomNavigationBarType.fixed,
         selectedFontSize: 10,
         unselectedFontSize: 10,
         items: const [
