@@ -3,11 +3,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PÁGINA INICIO — Resumen general para el usuario
+// INICIO PAGE —
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class InicioPage extends StatefulWidget {
-  const InicioPage({super.key});
+  /// Callback para cambiar la pestaña del BottomNavigationBar del padre.
+  final void Function(int index)? onNavegar;
+
+  const InicioPage({super.key, this.onNavegar});
 
   @override
   State<InicioPage> createState() => _InicioPageState();
@@ -17,42 +20,21 @@ class _InicioPageState extends State<InicioPage> {
   final PageController _carruselCtrl = PageController();
   int _paginaCarrusel = 0;
 
-  // Eventos placeholder — a futuro se cargarán desde Firestore
-  static const List<Map<String, dynamic>> _eventosEjemplo = [
-    {
-      'titulo': 'Clase de Spinning',
-      'descripcion': 'Todos los martes y jueves a las 7:00 AM',
-      'icono': Icons.directions_bike,
-      'color': Color(0xFFEA580C),
-      'fecha': 'Mar y Jue · 7:00 AM',
-    },
-    {
-      'titulo': 'Yoga Matutino',
-      'descripcion': 'Relajación y flexibilidad. Lunes, miércoles y viernes.',
-      'icono': Icons.self_improvement,
-      'color': Color(0xFF7C3AED),
-      'fecha': 'Lun, Mié y Vie · 8:00 AM',
-    },
-    {
-      'titulo': 'CrossFit Intensivo',
-      'descripcion': 'Sesión de alta intensidad. Sábados por la mañana.',
-      'icono': Icons.fitness_center,
-      'color': Color(0xFF059669),
-      'fecha': 'Sábados · 9:00 AM',
-    },
-    {
-      'titulo': 'Evaluación Física',
-      'descripcion': 'Medición de composición corporal gratuita este mes.',
-      'icono': Icons.monitor_weight,
-      'color': Color(0xFF0891B2),
-      'fecha': 'Todo el mes · Cita previa',
-    },
-  ];
-
   @override
   void dispose() {
     _carruselCtrl.dispose();
     super.dispose();
+  }
+
+  // Índices del BottomNavigationBar en home_page.dart
+  static const int _idxRutina = 1;
+  static const int _idxDieta = 2;
+  static const int _idxAcceso = 4;
+
+  void _navegar(int index) {
+    if (widget.onNavegar != null) {
+      widget.onNavegar!(index);
+    }
   }
 
   @override
@@ -74,73 +56,31 @@ class _InicioPageState extends State<InicioPage> {
           ),
           const SizedBox(height: 24),
 
-          // ── Sección de eventos (carrusel) ────────────────────────────────
+          // ── Sección de eventos (carrusel desde Firestore) ────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
-              children: [
-                const Text('Eventos y clases',
+              children: const [
+                Text('Eventos y clases',
                     style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 18)),
-                const Spacer(),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orangeAccent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(50),
-                    border: Border.all(
-                        color: Colors.orangeAccent.withOpacity(0.3)),
-                  ),
-                  child: const Text('Próximamente',
-                      style: TextStyle(
-                          color: Colors.orangeAccent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold)),
-                ),
               ],
             ),
           ),
           const SizedBox(height: 12),
 
-          // Carrusel
-          SizedBox(
-            height: 180,
-            child: PageView.builder(
-              controller: _carruselCtrl,
-              onPageChanged: (i) => setState(() => _paginaCarrusel = i),
-              itemCount: _eventosEjemplo.length,
-              itemBuilder: (_, i) =>
-                  _TarjetaEvento(evento: _eventosEjemplo[i]),
-            ),
-          ),
-
-          // Indicadores del carrusel
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _eventosEjemplo.length,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: _paginaCarrusel == i ? 20 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: _paginaCarrusel == i
-                      ? Colors.orangeAccent
-                      : Colors.white24,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
+          // Carrusel de eventos desde Firestore
+          _CarruselEventos(
+            carruselCtrl: _carruselCtrl,
+            paginaActual: _paginaCarrusel,
+            onPageChanged: (i) => setState(() => _paginaCarrusel = i),
           ),
 
           const SizedBox(height: 24),
 
-          // ── Accesos rápidos ──────────────────────────────────────────────
+          // ── Accesos rápidos funcionales ──────────────────────────────────
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text('Accesos rápidos',
@@ -158,40 +98,21 @@ class _InicioPageState extends State<InicioPage> {
                   icono: Icons.fitness_center,
                   label: 'Mi Rutina',
                   color: Colors.orangeAccent,
-                  onTap: () {
-                    // El usuario puede navegar desde el bottom nav
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Ve a la pestaña "Rutina"'),
-                          duration: Duration(seconds: 1)),
-                    );
-                  },
+                  onTap: () => _navegar(_idxRutina),
                 ),
                 const SizedBox(width: 12),
                 _AccesoRapido(
                   icono: Icons.restaurant,
                   label: 'Mi Dieta',
                   color: Colors.greenAccent,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Ve a la pestaña "Dieta"'),
-                          duration: Duration(seconds: 1)),
-                    );
-                  },
+                  onTap: () => _navegar(_idxDieta),
                 ),
                 const SizedBox(width: 12),
                 _AccesoRapido(
                   icono: Icons.qr_code,
                   label: 'Mi QR',
                   color: Colors.blueAccent,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Ve a la pestaña "Acceso"'),
-                          duration: Duration(seconds: 1)),
-                    );
-                  },
+                  onTap: () => _navegar(_idxAcceso),
                 ),
               ],
             ),
@@ -200,6 +121,112 @@ class _InicioPageState extends State<InicioPage> {
           const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+}
+
+// ─── Carrusel de eventos desde Firestore ──────────────────────────────────────
+
+class _CarruselEventos extends StatelessWidget {
+  final PageController carruselCtrl;
+  final int paginaActual;
+  final ValueChanged<int> onPageChanged;
+
+  const _CarruselEventos({
+    required this.carruselCtrl,
+    required this.paginaActual,
+    required this.onPageChanged,
+  });
+
+  static const List<Map<String, dynamic>> _fallback = [
+    {
+      'titulo': 'Clase de Spinning',
+      'descripcion': 'Todos los martes y jueves a las 7:00 AM',
+      'icono': 'directions_bike',
+      'color': 0xFFEA580C,
+      'horario': 'Mar y Jue · 7:00 AM',
+    },
+  ];
+
+  IconData _iconoDesde(String nombre) {
+    const m = {
+      'directions_bike': Icons.directions_bike,
+      'self_improvement': Icons.self_improvement,
+      'fitness_center': Icons.fitness_center,
+      'monitor_weight': Icons.monitor_weight,
+      'sports': Icons.sports,
+      'pool': Icons.pool,
+      'run_circle': Icons.run_circle,
+      'sports_gymnastics': Icons.sports_gymnastics,
+    };
+    return m[nombre] ?? Icons.event;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('eventos')
+          .where('activo', isEqualTo: true)
+          .orderBy('orden')
+          .snapshots(),
+      builder: (context, snap) {
+        List<Map<String, dynamic>> eventos;
+
+        if (snap.hasData && snap.data!.docs.isNotEmpty) {
+          eventos = snap.data!.docs
+              .map((d) => d.data() as Map<String, dynamic>)
+              .toList();
+        } else {
+          eventos = _fallback;
+        }
+
+        return Column(
+          children: [
+            SizedBox(
+              height: 180,
+              child: PageView.builder(
+                controller: carruselCtrl,
+                onPageChanged: onPageChanged,
+                itemCount: eventos.length,
+                itemBuilder: (_, i) {
+                  final e = eventos[i];
+                  final color = Color(e['color'] as int? ?? 0xFFEA580C);
+                  final icono = e['icono'] is String
+                      ? _iconoDesde(e['icono'])
+                      : Icons.event;
+                  return _TarjetaEvento(
+                    titulo: e['titulo'] ?? '',
+                    descripcion: e['descripcion'] ?? '',
+                    horario: e['horario'] ?? '',
+                    icono: icono,
+                    color: color,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                eventos.length,
+                (i) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: paginaActual == i ? 20 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: paginaActual == i
+                        ? Colors.orangeAccent
+                        : Colors.white24,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -285,12 +312,13 @@ class _ContadorGym extends StatelessWidget {
       builder: (context, snap) {
         final count = snap.data?.docs.length ?? 0;
         final personas = snap.data?.docs
-            .map((d) => (d.data() as Map<String, dynamic>)['nombre']
-                    ?.toString() ??
-                '')
-            .where((n) => n.isNotEmpty)
-            .take(5)
-            .toList() ?? [];
+                .map((d) =>
+                    (d.data() as Map<String, dynamic>)['nombre']?.toString() ??
+                    '')
+                .where((n) => n.isNotEmpty)
+                .take(5)
+                .toList() ??
+            [];
 
         return Container(
           width: double.infinity,
@@ -327,8 +355,8 @@ class _ContadorGym extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Personas en el gym ahora',
-                          style: TextStyle(
-                              color: Colors.white54, fontSize: 12)),
+                          style:
+                              TextStyle(color: Colors.white54, fontSize: 12)),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -353,7 +381,6 @@ class _ContadorGym extends StatelessWidget {
                     ],
                   ),
                   const Spacer(),
-                  // Indicador en vivo
                   Column(
                     children: [
                       Container(
@@ -364,10 +391,9 @@ class _ContadorGym extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.greenAccent,
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            )
+                                color: Colors.greenAccent,
+                                blurRadius: 8,
+                                spreadRadius: 2)
                           ],
                         ),
                       ),
@@ -381,8 +407,6 @@ class _ContadorGym extends StatelessWidget {
                   ),
                 ],
               ),
-
-              // Lista de nombres (primeros 5)
               if (personas.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 const Divider(color: Colors.white12, height: 1),
@@ -407,8 +431,7 @@ class _ContadorGym extends StatelessWidget {
                                 const SizedBox(width: 5),
                                 Text(nombre,
                                     style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12)),
+                                        color: Colors.white70, fontSize: 12)),
                               ],
                             ),
                           ))
@@ -419,8 +442,8 @@ class _ContadorGym extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
                       'y ${count - 5} más...',
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 11),
+                      style:
+                          const TextStyle(color: Colors.white38, fontSize: 11),
                     ),
                   ),
               ] else if (count == 0) ...[
@@ -438,15 +461,25 @@ class _ContadorGym extends StatelessWidget {
   }
 }
 
-// ─── Tarjeta de evento (carrusel) ─────────────────────────────────────────────
+// ─── Tarjeta de evento ────────────────────────────────────────────────────────
 
 class _TarjetaEvento extends StatelessWidget {
-  final Map<String, dynamic> evento;
-  const _TarjetaEvento({required this.evento});
+  final String titulo;
+  final String descripcion;
+  final String horario;
+  final IconData icono;
+  final Color color;
+
+  const _TarjetaEvento({
+    required this.titulo,
+    required this.descripcion,
+    required this.horario,
+    required this.icono,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = evento['color'] as Color;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -467,7 +500,7 @@ class _TarjetaEvento extends StatelessWidget {
               color: color.withOpacity(0.2),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(evento['icono'] as IconData, color: color, size: 36),
+            child: Icon(icono, color: color, size: 36),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -475,13 +508,13 @@ class _TarjetaEvento extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(evento['titulo'],
+                Text(titulo,
                     style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 16)),
                 const SizedBox(height: 6),
-                Text(evento['descripcion'],
+                Text(descripcion,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -491,7 +524,7 @@ class _TarjetaEvento extends StatelessWidget {
                   children: [
                     Icon(Icons.schedule, color: color, size: 13),
                     const SizedBox(width: 4),
-                    Text(evento['fecha'],
+                    Text(horario,
                         style: TextStyle(
                             color: color,
                             fontSize: 11,
@@ -540,9 +573,7 @@ class _AccesoRapido extends StatelessWidget {
               const SizedBox(height: 8),
               Text(label,
                   style: TextStyle(
-                      color: color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold)),
+                      color: color, fontSize: 12, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
