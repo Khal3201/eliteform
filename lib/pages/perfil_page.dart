@@ -16,7 +16,7 @@ class PerfilPage extends StatefulWidget {
   State<PerfilPage> createState() => _PerfilPageState();
 }
 
-class _PerfilPageState extends State<PerfilPage> {
+class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
   final nombreController = TextEditingController();
   final telefonoController = TextEditingController();
   final emailController = TextEditingController();
@@ -27,6 +27,37 @@ class _PerfilPageState extends State<PerfilPage> {
   String? _fotoUrl;
 
   final ImagePicker _picker = ImagePicker();
+
+  // Guardamos la fuente para recuperar datos perdidos tras reinicio de Activity
+  ImageSource? _ultimaFuente;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    cargarDatos();
+    _recuperarDatosPerdidos();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    nombreController.dispose();
+    telefonoController.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
+
+  /// Recupera imágenes perdidas cuando Android reinicia la Activity
+  /// (común en dispositivos con poca RAM como Oppo A40)
+  Future<void> _recuperarDatosPerdidos() async {
+    final LostDataResponse response = await _picker.retrieveLostData();
+    if (response.isEmpty) return;
+    if (response.file != null) {
+      setState(() => _subiendoFoto = true);
+      await _subirDesdeXFile(response.file!);
+    }
+  }
 
   Future<void> cargarDatos() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -126,36 +157,72 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  Future<void> _tomarFoto(ImageSource source) async {
-    try {
-      // 1. GESTIÓN DE PERMISOS
-      PermissionStatus status;
-
-      if (source == ImageSource.camera) {
-        status = await Permission.camera.request();
-      } else {
-        // Intentar primero con photos (Android 13+)
-        status = await Permission.photos.request();
-        // Si se deniega o no es compatible, intentar con storage (Android < 13)
-        if (status.isDenied) {
-          status = await Permission.storage.request();
-        }
-      }
-
+  /// Solicita permiso de cámara o galería según la fuente.
+  /// Devuelve true si el permiso fue concedido.
+  Future<bool> _pedirPermiso(ImageSource source) async {
+    if (source == ImageSource.camera) {
+      final status = await Permission.camera.request();
       if (status.isPermanentlyDenied) {
-        openAppSettings();
-        return;
+        await openAppSettings();
+        return false;
       }
-
       if (!status.isGranted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Necesitamos permisos para continuar')));
+              content: Text('Permiso de cámara requerido para tomar fotos')));
         }
-        return;
+        return false;
+      }
+      return true;
+    } else {
+      // Galería: Android 13+ usa READ_MEDIA_IMAGES, versiones anteriores READ_EXTERNAL_STORAGE
+      PermissionStatus status;
+
+      if (Platform.isAndroid) {
+        // Intentar primero READ_MEDIA_IMAGES (Android 13+)
+        status = await Permission.photos.request();
+
+        // Si no está disponible o fue denegado, intentar con storage (Android <13)
+        if (status == PermissionStatus.denied ||
+            status == PermissionStatus.permanentlyDenied) {
+          final storageStatus = await Permission.storage.request();
+          // Usamos el más permisivo de los dos
+          if (storageStatus.isGranted) return true;
+        }
+      } else {
+        status = await Permission.photos.request();
       }
 
-      // 2. SELECCIÓN DE LA IMAGEN (Esta línea es vital)
+      if (status.isPermanentlyDenied) {
+        await openAppSettings();
+        return false;
+      }
+      // En Android 13+ image_picker puede funcionar sin permiso explícito
+      // gracias al photo picker del sistema — permitimos continuar
+      if (!status.isGranted && Platform.isAndroid) {
+        // Intentar de todas formas; el sistema mostrará su propio picker
+        return true;
+      }
+      if (!status.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Permiso de galería requerido para elegir fotos')));
+        }
+        return false;
+      }
+      return true;
+    }
+  }
+
+  Future<void> _tomarFoto(ImageSource source) async {
+    try {
+      final tienePermiso = await _pedirPermiso(source);
+      if (!tienePermiso) return;
+
+      _ultimaFuente = source;
+
+      // Usamos pickImage; en Oppo/ColorOS la Activity puede reiniciarse
+      // al regresar de la cámara — se recupera con retrieveLostData()
       final XFile? imagen = await _picker.pickImage(
         source: source,
         maxWidth: 512,
@@ -163,27 +230,59 @@ class _PerfilPageState extends State<PerfilPage> {
         imageQuality: 80,
       );
 
-      if (imagen == null) return; // El usuario canceló la selección
+      if (imagen == null) return;
 
-      // 3. PROCESO DE SUBIDA
       setState(() => _subiendoFoto = true);
+      await _subirDesdeXFile(imagen);
+    } catch (e) {
+      setState(() => _subiendoFoto = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al seleccionar foto: $e')));
+      }
+    }
+  }
 
+  Future<void> _subirDesdeXFile(XFile imagen) async {
+    try {
+      // Refrescar usuario: tras reinicio de Activity el token puede haber
+      // caducado, y Firebase Storage lo reporta como object-not-found
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
+      await user.reload();
+      final userFresh = FirebaseAuth.instance.currentUser;
+      if (userFresh == null) return;
 
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('fotos_perfil')
-          .child('${user.uid}.jpg');
+      // Leer bytes en memoria antes de cualquier operación de red
+      final Uint8List bytes = await imagen.readAsBytes();
+      if (bytes.isEmpty) {
+        throw Exception('No se pudieron leer los datos de la imagen');
+      }
 
-      // Subir archivo a Storage
-      await ref.putFile(File(imagen.path));
+      // Usar ref() con path directo — más robusto que encadenar .child()
+      final ref =
+          FirebaseStorage.instance.ref('fotos_perfil/${userFresh.uid}.jpg');
+
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+
+      // Si putData falla con object-not-found o unauthorized, forzar
+      // refresh del token de Auth y reintentar una sola vez
+      try {
+        await ref.putData(bytes, metadata);
+      } on FirebaseException catch (e) {
+        if (e.code == 'object-not-found' || e.code == 'unauthorized') {
+          await userFresh.getIdToken(true); // fuerza refresh del token
+          await ref.putData(bytes, metadata);
+        } else {
+          rethrow;
+        }
+      }
+
       final url = await ref.getDownloadURL();
 
-      // Actualizar URL en Firestore
       await FirebaseFirestore.instance
           .collection('usuarios')
-          .doc(user.uid)
+          .doc(userFresh.uid)
           .update({'foto_url': url});
 
       if (mounted) {
@@ -191,16 +290,14 @@ class _PerfilPageState extends State<PerfilPage> {
           _fotoUrl = url;
           _subiendoFoto = false;
         });
-
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Foto de perfil actualizada')));
       }
     } catch (e) {
-      setState(() => _subiendoFoto = false);
       if (mounted) {
-        print(e);
+        setState(() => _subiendoFoto = false);
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+            .showSnackBar(SnackBar(content: Text('Error al subir foto: $e')));
       }
     }
   }
@@ -210,20 +307,34 @@ class _PerfilPageState extends State<PerfilPage> {
     if (user == null) return;
     setState(() => _subiendoFoto = true);
     try {
-      await FirebaseStorage.instance
-          .ref()
-          .child('fotos_perfil')
-          .child('${user.uid}.jpg')
-          .delete();
-    } catch (_) {}
+      // Solo intentamos borrar si sabemos que existe (hay URL guardada)
+      if (_fotoUrl != null) {
+        await FirebaseStorage.instance
+            .ref()
+            .child('fotos_perfil')
+            .child('${user.uid}.jpg')
+            .delete();
+      }
+    } on FirebaseException catch (e) {
+      // Si el objeto no existe en Storage, continuamos de todas formas
+      // para limpiar la referencia en Firestore
+      if (e.code != 'object-not-found') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error al eliminar foto: $e')));
+        }
+      }
+    }
     await FirebaseFirestore.instance
         .collection('usuarios')
         .doc(user.uid)
         .update({'foto_url': FieldValue.delete()});
-    setState(() {
-      _fotoUrl = null;
-      _subiendoFoto = false;
-    });
+    if (mounted) {
+      setState(() {
+        _fotoUrl = null;
+        _subiendoFoto = false;
+      });
+    }
   }
 
   Future<void> actualizarPerfil() async {
@@ -298,20 +409,6 @@ class _PerfilPageState extends State<PerfilPage> {
           content: Text(
               'No se pudo eliminar. Vuelve a iniciar sesión e intenta de nuevo.')));
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    cargarDatos();
-  }
-
-  @override
-  void dispose() {
-    nombreController.dispose();
-    telefonoController.dispose();
-    emailController.dispose();
-    super.dispose();
   }
 
   @override
