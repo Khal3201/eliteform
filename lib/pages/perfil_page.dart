@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'login_page.dart';
 import 'aviso_privacidad_page.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -127,14 +128,44 @@ class _PerfilPageState extends State<PerfilPage> {
 
   Future<void> _tomarFoto(ImageSource source) async {
     try {
+      // 1. GESTIÓN DE PERMISOS
+      PermissionStatus status;
+
+      if (source == ImageSource.camera) {
+        status = await Permission.camera.request();
+      } else {
+        // Intentar primero con photos (Android 13+)
+        status = await Permission.photos.request();
+        // Si se deniega o no es compatible, intentar con storage (Android < 13)
+        if (status.isDenied) {
+          status = await Permission.storage.request();
+        }
+      }
+
+      if (status.isPermanentlyDenied) {
+        openAppSettings();
+        return;
+      }
+
+      if (!status.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Necesitamos permisos para continuar')));
+        }
+        return;
+      }
+
+      // 2. SELECCIÓN DE LA IMAGEN (Esta línea es vital)
       final XFile? imagen = await _picker.pickImage(
         source: source,
         maxWidth: 512,
         maxHeight: 512,
         imageQuality: 80,
       );
-      if (imagen == null) return;
 
+      if (imagen == null) return; // El usuario canceló la selección
+
+      // 3. PROCESO DE SUBIDA
       setState(() => _subiendoFoto = true);
 
       final user = FirebaseAuth.instance.currentUser;
@@ -145,29 +176,31 @@ class _PerfilPageState extends State<PerfilPage> {
           .child('fotos_perfil')
           .child('${user.uid}.jpg');
 
+      // Subir archivo a Storage
       await ref.putFile(File(imagen.path));
       final url = await ref.getDownloadURL();
 
+      // Actualizar URL en Firestore
       await FirebaseFirestore.instance
           .collection('usuarios')
           .doc(user.uid)
           .update({'foto_url': url});
 
-      setState(() {
-        _fotoUrl = url;
-        _subiendoFoto = false;
-      });
-
       if (mounted) {
+        setState(() {
+          _fotoUrl = url;
+          _subiendoFoto = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Foto de perfil actualizada')));
       }
-    } catch (_) {
+    } catch (e) {
       setState(() => _subiendoFoto = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'No se pudo subir la foto. Verifica los permisos e intenta de nuevo.')));
+        print(e);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
   }
