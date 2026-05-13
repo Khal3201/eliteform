@@ -1,13 +1,18 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'login_page.dart';
 import 'aviso_privacidad_page.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+// NOTA: Firebase Storage eliminado. Las fotos se guardan como Base64
+// directamente en Firestore en el campo 'foto_base64' del documento
+// del usuario. Máximo recomendado: imágenes de 512x512 a calidad 70
+// generan ~30-60 KB en Base64, bien dentro del límite de 1 MB de Firestore.
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -16,7 +21,7 @@ class PerfilPage extends StatefulWidget {
   State<PerfilPage> createState() => _PerfilPageState();
 }
 
-class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
+class _PerfilPageState extends State<PerfilPage> {
   final nombreController = TextEditingController();
   final telefonoController = TextEditingController();
   final emailController = TextEditingController();
@@ -24,56 +29,48 @@ class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
   bool editando = false;
   bool loading = true;
   bool _subiendoFoto = false;
-  String? _fotoUrl;
+
+  // Base64 de la foto almacenada en Firestore
+  String? _fotoBase64;
 
   final ImagePicker _picker = ImagePicker();
-
-  // Guardamos la fuente para recuperar datos perdidos tras reinicio de Activity
-  ImageSource? _ultimaFuente;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     cargarDatos();
-    _recuperarDatosPerdidos();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     nombreController.dispose();
     telefonoController.dispose();
     emailController.dispose();
     super.dispose();
   }
 
-  /// Recupera imágenes perdidas cuando Android reinicia la Activity
-  /// (común en dispositivos con poca RAM como Oppo A40)
-  Future<void> _recuperarDatosPerdidos() async {
-    final LostDataResponse response = await _picker.retrieveLostData();
-    if (response.isEmpty) return;
-    if (response.file != null) {
-      setState(() => _subiendoFoto = true);
-      await _subirDesdeXFile(response.file!);
+  Future<void> cargarDatos() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(user.uid)
+        .get();
+    if (doc.exists) {
+      final data = doc.data()!;
+      nombreController.text = data['nombre'] ?? '';
+      telefonoController.text = data['telefono'] ?? '';
+      emailController.text = user.email ?? '';
+      setState(() {
+        loading = false;
+        _fotoBase64 = data['foto_base64'] as String?;
+      });
+    } else {
+      setState(() => loading = false);
     }
   }
 
-  Future<void> cargarDatos() async {
-    final user = FirebaseAuth.instance.currentUser;
-    final doc = await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(user!.uid)
-        .get();
-    nombreController.text = doc['nombre'] ?? '';
-    telefonoController.text = doc['telefono'] ?? '';
-    emailController.text = user.email ?? '';
-    setState(() {
-      loading = false;
-      _fotoUrl = doc.data()?['foto_url'] as String?;
-    });
-  }
-
+  // ── Selector de fuente de foto ────────────────────────────────────────────
   Future<void> _seleccionarFoto() async {
     await showModalBottomSheet(
       context: context,
@@ -133,7 +130,7 @@ class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
                 _tomarFoto(ImageSource.gallery);
               },
             ),
-            if (_fotoUrl != null)
+            if (_fotoBase64 != null)
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -157,186 +154,163 @@ class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
     );
   }
 
-  /// Solicita permiso de cámara o galería según la fuente.
-  /// Devuelve true si el permiso fue concedido.
-  Future<bool> _pedirPermiso(ImageSource source) async {
-    if (source == ImageSource.camera) {
-      final status = await Permission.camera.request();
-      if (status.isPermanentlyDenied) {
-        await openAppSettings();
-        return false;
-      }
-      if (!status.isGranted) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Permiso de cámara requerido para tomar fotos')));
-        }
-        return false;
-      }
-      return true;
-    } else {
-      // Galería: Android 13+ usa READ_MEDIA_IMAGES, versiones anteriores READ_EXTERNAL_STORAGE
-      PermissionStatus status;
-
-      if (Platform.isAndroid) {
-        // Intentar primero READ_MEDIA_IMAGES (Android 13+)
-        status = await Permission.photos.request();
-
-        // Si no está disponible o fue denegado, intentar con storage (Android <13)
-        if (status == PermissionStatus.denied ||
-            status == PermissionStatus.permanentlyDenied) {
-          final storageStatus = await Permission.storage.request();
-          // Usamos el más permisivo de los dos
-          if (storageStatus.isGranted) return true;
-        }
-      } else {
-        status = await Permission.photos.request();
-      }
-
-      if (status.isPermanentlyDenied) {
-        await openAppSettings();
-        return false;
-      }
-      // En Android 13+ image_picker puede funcionar sin permiso explícito
-      // gracias al photo picker del sistema — permitimos continuar
-      if (!status.isGranted && Platform.isAndroid) {
-        // Intentar de todas formas; el sistema mostrará su propio picker
-        return true;
-      }
-      if (!status.isGranted) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Permiso de galería requerido para elegir fotos')));
-        }
-        return false;
-      }
-      return true;
-    }
-  }
-
+  // ── Tomar / seleccionar foto y guardar como Base64 en Firestore ───────────
   Future<void> _tomarFoto(ImageSource source) async {
     try {
-      final tienePermiso = await _pedirPermiso(source);
-      if (!tienePermiso) return;
+      // 1. Gestión de permisos
+      PermissionStatus status;
+      if (source == ImageSource.camera) {
+        status = await Permission.camera.request();
+      } else {
+        status = await Permission.photos.request();
+        if (status.isDenied) {
+          status = await Permission.storage.request();
+        }
+      }
 
-      _ultimaFuente = source;
+      if (status.isPermanentlyDenied) {
+        openAppSettings();
+        return;
+      }
+      if (!status.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Necesitamos permisos para continuar')));
+        }
+        return;
+      }
 
-      // Usamos pickImage; en Oppo/ColorOS la Activity puede reiniciarse
-      // al regresar de la cámara — se recupera con retrieveLostData()
+      // 2. Seleccionar imagen — tamaño reducido para Firestore
       final XFile? imagen = await _picker.pickImage(
         source: source,
         maxWidth: 512,
         maxHeight: 512,
-        imageQuality: 80,
+        imageQuality: 70, // calidad 70 → ~30-60 KB → Base64 ~40-80 KB
       );
-
       if (imagen == null) return;
 
       setState(() => _subiendoFoto = true);
-      await _subirDesdeXFile(imagen);
-    } catch (e) {
-      setState(() => _subiendoFoto = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error al seleccionar foto: $e')));
-      }
-    }
-  }
 
-  Future<void> _subirDesdeXFile(XFile imagen) async {
-    try {
-      // Refrescar usuario: tras reinicio de Activity el token puede haber
-      // caducado, y Firebase Storage lo reporta como object-not-found
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-      await user.reload();
-      final userFresh = FirebaseAuth.instance.currentUser;
-      if (userFresh == null) return;
-
-      // Leer bytes en memoria antes de cualquier operación de red
+      // 3. Leer bytes y convertir a Base64
       final Uint8List bytes = await imagen.readAsBytes();
       if (bytes.isEmpty) {
-        throw Exception('No se pudieron leer los datos de la imagen');
-      }
-
-      // Usar ref() con path directo — más robusto que encadenar .child()
-      final ref =
-          FirebaseStorage.instance.ref('fotos_perfil/${userFresh.uid}.jpg');
-
-      final metadata = SettableMetadata(contentType: 'image/jpeg');
-
-      // Si putData falla con object-not-found o unauthorized, forzar
-      // refresh del token de Auth y reintentar una sola vez
-      try {
-        await ref.putData(bytes, metadata);
-      } on FirebaseException catch (e) {
-        if (e.code == 'object-not-found' || e.code == 'unauthorized') {
-          await userFresh.getIdToken(true); // fuerza refresh del token
-          await ref.putData(bytes, metadata);
-        } else {
-          rethrow;
+        setState(() => _subiendoFoto = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No se pudo leer la imagen')));
         }
+        return;
       }
+      final String base64Str = base64Encode(bytes);
 
-      final url = await ref.getDownloadURL();
+      // 4. Guardar Base64 en Firestore
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
       await FirebaseFirestore.instance
           .collection('usuarios')
-          .doc(userFresh.uid)
-          .update({'foto_url': url});
+          .doc(user.uid)
+          .update({'foto_base64': base64Str});
 
       if (mounted) {
         setState(() {
-          _fotoUrl = url;
+          _fotoBase64 = base64Str;
           _subiendoFoto = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Foto de perfil actualizada')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Foto de perfil actualizada'),
+            backgroundColor: Colors.greenAccent));
       }
     } catch (e) {
       if (mounted) {
         setState(() => _subiendoFoto = false);
+        debugPrint('Error guardando foto: $e');
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error al subir foto: $e')));
+            .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
   }
 
+  // ── Eliminar foto ─────────────────────────────────────────────────────────
   Future<void> _eliminarFoto() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     setState(() => _subiendoFoto = true);
-    try {
-      // Solo intentamos borrar si sabemos que existe (hay URL guardada)
-      if (_fotoUrl != null) {
-        await FirebaseStorage.instance
-            .ref()
-            .child('fotos_perfil')
-            .child('${user.uid}.jpg')
-            .delete();
-      }
-    } on FirebaseException catch (e) {
-      // Si el objeto no existe en Storage, continuamos de todas formas
-      // para limpiar la referencia en Firestore
-      if (e.code != 'object-not-found') {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error al eliminar foto: $e')));
-        }
-      }
-    }
     await FirebaseFirestore.instance
         .collection('usuarios')
         .doc(user.uid)
-        .update({'foto_url': FieldValue.delete()});
-    if (mounted) {
-      setState(() {
-        _fotoUrl = null;
-        _subiendoFoto = false;
-      });
-    }
+        .update({'foto_base64': FieldValue.delete()});
+    setState(() {
+      _fotoBase64 = null;
+      _subiendoFoto = false;
+    });
   }
 
+  // ── Widget de avatar ──────────────────────────────────────────────────────
+  Widget _buildAvatar() {
+    Widget fotoWidget;
+    if (_subiendoFoto) {
+      fotoWidget = const Padding(
+        padding: EdgeInsets.all(20),
+        child: CircularProgressIndicator(
+            color: Colors.orangeAccent, strokeWidth: 3),
+      );
+    } else if (_fotoBase64 != null) {
+      try {
+        final bytes = base64Decode(_fotoBase64!);
+        fotoWidget = ClipOval(
+          child: Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: 110,
+            height: 110,
+            errorBuilder: (_, __, ___) =>
+                const Icon(Icons.person, size: 60, color: Colors.orangeAccent),
+          ),
+        );
+      } catch (_) {
+        fotoWidget =
+            const Icon(Icons.person, size: 60, color: Colors.orangeAccent);
+      }
+    } else {
+      fotoWidget =
+          const Icon(Icons.person, size: 60, color: Colors.orangeAccent);
+    }
+
+    return Stack(
+      alignment: Alignment.bottomRight,
+      children: [
+        GestureDetector(
+          onTap: _seleccionarFoto,
+          child: Container(
+            width: 110,
+            height: 110,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: Colors.orangeAccent.withOpacity(0.6), width: 3),
+              color: const Color(0xFF1E293B),
+            ),
+            child: ClipOval(child: Center(child: fotoWidget)),
+          ),
+        ),
+        GestureDetector(
+          onTap: _seleccionarFoto,
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.orangeAccent,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF0F172A), width: 2),
+            ),
+            child: const Icon(Icons.camera_alt, color: Colors.black, size: 18),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Actualizar perfil ─────────────────────────────────────────────────────
   Future<void> actualizarPerfil() async {
     if (telefonoController.text.length != 10) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -344,19 +318,24 @@ class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
       return;
     }
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
     await FirebaseFirestore.instance
         .collection('usuarios')
-        .doc(user!.uid)
+        .doc(user.uid)
         .update({
       'nombre': nombreController.text.trim(),
       'telefono': telefonoController.text.trim(),
     });
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Perfil actualizado')));
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Perfil actualizado')));
+    }
   }
 
+  // ── Eliminar cuenta ───────────────────────────────────────────────────────
   Future<void> eliminarCuenta() async {
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
     final confirmar = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
@@ -381,8 +360,9 @@ class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
         false;
     if (!confirmar) return;
     try {
-      final uid = user!.uid;
+      final uid = user.uid;
       final batch = FirebaseFirestore.instance.batch();
+      // Borrar documento del usuario (foto_base64 se elimina con él)
       batch.delete(FirebaseFirestore.instance.collection('usuarios').doc(uid));
       final pedidos = await FirebaseFirestore.instance
           .collection('pedidos')
@@ -392,22 +372,17 @@ class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
         batch.delete(doc.reference);
       }
       await batch.commit();
-      try {
-        await FirebaseStorage.instance
-            .ref()
-            .child('fotos_perfil')
-            .child('$uid.jpg')
-            .delete();
-      } catch (_) {}
       await user.delete();
       if (mounted) {
         Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (_) => const LoginPage()));
       }
     } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'No se pudo eliminar. Vuelve a iniciar sesión e intenta de nuevo.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'No se pudo eliminar. Vuelve a iniciar sesión e intenta de nuevo.')));
+      }
     }
   }
 
@@ -421,56 +396,8 @@ class _PerfilPageState extends State<PerfilPage> with WidgetsBindingObserver {
       child: SingleChildScrollView(
         child: Column(
           children: [
-            // ── Avatar con botón de cámara ────────────────────────────────
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                GestureDetector(
-                  onTap: _seleccionarFoto,
-                  child: Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.orangeAccent.withOpacity(0.6),
-                          width: 3),
-                      color: const Color(0xFF1E293B),
-                    ),
-                    child: _subiendoFoto
-                        ? const Padding(
-                            padding: EdgeInsets.all(20),
-                            child: CircularProgressIndicator(
-                                color: Colors.orangeAccent, strokeWidth: 3))
-                        : ClipOval(
-                            child: _fotoUrl != null
-                                ? Image.network(_fotoUrl!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                        Icons.person,
-                                        size: 60,
-                                        color: Colors.orangeAccent))
-                                : const Icon(Icons.person,
-                                    size: 60, color: Colors.orangeAccent),
-                          ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _seleccionarFoto,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.orangeAccent,
-                      shape: BoxShape.circle,
-                      border:
-                          Border.all(color: const Color(0xFF0F172A), width: 2),
-                    ),
-                    child: const Icon(Icons.camera_alt,
-                        color: Colors.black, size: 18),
-                  ),
-                ),
-              ],
-            ),
+            // ── Avatar ────────────────────────────────────────────────────
+            _buildAvatar(),
             const SizedBox(height: 6),
             TextButton(
               onPressed: _seleccionarFoto,

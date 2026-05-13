@@ -2,17 +2,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../pages/aviso_privacidad_page.dart';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// WIDGET DE CONSENTIMIENTO
-// Muestra 3 casillas antes de permitir crear una cuenta:
-//   1. Acepta aviso de privacidad         (OBLIGATORIA)
-//   2. Acepta tratamiento de datos        (OBLIGATORIA)
-//   3. Acepta notificaciones              (OPCIONAL)
-//
-// Uso en register_page.dart:
-//   ConsentimientoWidget(onChanged: (valido) => setState(() => _consentimientoValido = valido))
-// ═══════════════════════════════════════════════════════════════════════════════
-
 class ConsentimientoWidget extends StatefulWidget {
   /// Callback que recibe `true` cuando las dos casillas obligatorias están marcadas.
   final ValueChanged<bool> onChanged;
@@ -107,7 +96,8 @@ class _ConsentimientoWidgetState extends State<ConsentimientoWidget> {
             child: const Text(
               'Acepto que mis datos (nombre, correo, teléfono, asistencia al gimnasio) '
               'sean tratados para gestionar mi cuenta y membresía.',
-              style: TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4),
+              style:
+                  TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4),
             ),
           ),
 
@@ -124,7 +114,8 @@ class _ConsentimientoWidgetState extends State<ConsentimientoWidget> {
             child: const Text(
               '(Opcional) Acepto recibir notificaciones sobre mi membresía, '
               'renovaciones y eventos del gimnasio.',
-              style: TextStyle(color: Colors.white54, fontSize: 12.5, height: 1.4),
+              style:
+                  TextStyle(color: Colors.white54, fontSize: 12.5, height: 1.4),
             ),
           ),
 
@@ -183,7 +174,9 @@ class _CasillaConsentimiento extends StatelessWidget {
                 const Text(
                   '* Obligatorio',
                   style: TextStyle(
-                      color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                      color: Colors.redAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
                 ),
             ],
           ),
