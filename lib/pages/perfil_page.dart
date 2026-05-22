@@ -522,7 +522,7 @@ class _PerfilPageState extends State<PerfilPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text('v1.0 · khalebreyes06@gmail.com',
+              const Text('v1.14.0 · khalebreyes06@gmail.com',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white24, fontSize: 11)),
               const SizedBox(height: 20),

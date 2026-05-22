@@ -4,7 +4,7 @@ import '../widgets/users_list.dart';
 import 'login_page.dart';
 import 'admin_pedidos_page.dart';
 import 'admin_contenido_page.dart';
-import 'gym_monitor_page.dart'; // ← NUEVO
+import 'gym_monitor_page.dart'; 
 
 class AdminPage extends StatelessWidget {
   const AdminPage({super.key});

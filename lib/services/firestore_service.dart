@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
-
+import '../models/ejercicio_model.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -181,6 +181,52 @@ class FirestoreService {
     await _db.collection('usuarios').doc(uid).update({
       'id_dieta_activa': FieldValue.delete(),
     });
+  }
+    // ═══════════════════════════════════════════════════════════════
+  // EJERCICIOS
+  // ═══════════════════════════════════════════════════════════════
+
+  Stream<QuerySnapshot> getEjerciciosAdmin() {
+    return _db
+        .collection('ejercicios')
+        .where('creado_por', isEqualTo: 'admin')
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getEjerciciosPorCategoria(String categoria) {
+    return _db
+        .collection('ejercicios')
+        .where('creado_por', isEqualTo: 'admin')
+        .where('categoria', isEqualTo: categoria)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getEjerciciosAdminPorMusculo(String musculo) {
+    return _db
+        .collection('ejercicios')
+        .where('creado_por', isEqualTo: 'admin')
+        .where('musculo', isEqualTo: musculo)
+        .snapshots();
+  }
+
+  Future<String> crearEjercicio(EjercicioModel ejercicio) async {
+    final ref = await _db.collection('ejercicios').add(ejercicio.toMap());
+    return ref.id;
+  }
+
+  Future<void> eliminarEjercicio(String idEjercicio) async {
+    await _db.collection('ejercicios').doc(idEjercicio).delete();
+  }
+
+  Future<EjercicioModel?> getEjercicioPorId(String idEjercicio) async {
+    final doc = await _db.collection('ejercicios').doc(idEjercicio).get();
+    if (!doc.exists) return null;
+    return EjercicioModel.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+  }
+
+  Future<void> actualizarEjercicio(
+      String idEjercicio, Map<String, dynamic> data) async {
+    await _db.collection('ejercicios').doc(idEjercicio).update(data);
   }
 
   // ═══════════════════════════════════════════════════════════════
