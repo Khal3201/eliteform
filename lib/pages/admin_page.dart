@@ -4,7 +4,9 @@ import '../widgets/users_list.dart';
 import 'login_page.dart';
 import 'admin_pedidos_page.dart';
 import 'admin_contenido_page.dart';
-import 'gym_monitor_page.dart'; 
+import 'admin_ejercicios_page.dart';
+import 'admin_eventos_page.dart';
+import 'gym_monitor_page.dart';
 
 class AdminPage extends StatelessWidget {
   const AdminPage({super.key});
@@ -22,7 +24,7 @@ class AdminPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 5, // ← ahora 5 tabs (agregamos Monitor)
+      length: 7,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Panel de Administrador'),
@@ -43,6 +45,8 @@ class AdminPage extends StatelessWidget {
               Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Pedidos'),
               Tab(icon: Icon(Icons.fitness_center_outlined), text: 'Rutinas'),
               Tab(icon: Icon(Icons.restaurant_outlined), text: 'Dietas'),
+              Tab(icon: Icon(Icons.sports_gymnastics_outlined), text: 'Ejercicios'),
+              Tab(icon: Icon(Icons.event_outlined), text: 'Eventos'),
               Tab(icon: Icon(Icons.monitor_heart_outlined), text: 'Monitor'),
             ],
           ),
@@ -53,6 +57,8 @@ class AdminPage extends StatelessWidget {
             AdminPedidosPage(),
             AdminRutinasPage(),
             AdminDietasPage(),
+            AdminEjerciciosPage(),
+            AdminEventosPage(),
             GymMonitorPage(),
           ],
         ),

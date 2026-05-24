@@ -284,7 +284,11 @@ class JsonImportTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ejemplo = tipo == 'rutina' ? kJsonEjemploRutina : kJsonEjemploDieta;
+    final ejemplo = tipo == 'rutina'
+    ? kJsonEjemploRutina
+    : tipo == 'ejercicio'
+        ? kJsonEjemploEjercicio
+        : kJsonEjemploDieta;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -560,3 +564,19 @@ class MacroBar extends StatelessWidget {
     );
   }
 }
+
+// ─── Ejemplo JSON para ejercicios ────────────────────────────────────────────
+
+const String kJsonEjemploEjercicio = r'''
+{
+  "nombre": "Press de banca",
+  "musculo": "Pecho",
+  "nivel": "Intermedio",
+  "tipo": "Fuerza",
+  "descripcion": "Ejercicio de empuje horizontal para desarrollar el pecho.",
+  "series_recomendadas": 4,
+  "repeticiones_recomendadas": "8-10",
+  "descanso_recomendado": "90 seg",
+  "equipamiento": "Barra y banco",
+  "notas": "Baja controlado, no rebotar en el pecho."
+}''';

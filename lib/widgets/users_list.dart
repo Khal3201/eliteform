@@ -147,73 +147,78 @@ class _TarjetaUsuario extends StatelessWidget {
     final tieneRutina = user.idRutinaActiva?.isNotEmpty == true;
     final tieneDieta = user.idDietaActiva?.isNotEmpty == true;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            onTap: () => _verDetalle(context),
-            leading: const CircleAvatar(
-              radius: 22,
-              backgroundColor: Color(0xFF334155),
-              child: Icon(Icons.person, color: Colors.white54, size: 24),
+    // FIX: Material en lugar de Container+BoxDecoration para que
+    // ListTile pueda pintar ink splashes correctamente.
+    return Material(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Column(
+          children: [
+            ListTile(
+              onTap: () => _verDetalle(context),
+              leading: const CircleAvatar(
+                radius: 22,
+                backgroundColor: Color(0xFF334155),
+                child: Icon(Icons.person, color: Colors.white54, size: 24),
+              ),
+              title: Text(user.nombre,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(user.correo,
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _Badge(
+                          icono: Icons.fitness_center,
+                          label: 'Rutina',
+                          activo: tieneRutina),
+                      const SizedBox(width: 6),
+                      _Badge(
+                          icono: Icons.restaurant,
+                          label: 'Dieta',
+                          activo: tieneDieta),
+                    ],
+                  ),
+                ],
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
             ),
-            title: Text(user.nombre,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(user.correo,
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 12)),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    _Badge(
-                        icono: Icons.fitness_center,
-                        label: 'Rutina',
-                        activo: tieneRutina),
-                    const SizedBox(width: 6),
-                    _Badge(
-                        icono: Icons.restaurant,
-                        label: 'Dieta',
-                        activo: tieneDieta),
-                  ],
-                ),
-              ],
+            const Divider(color: Colors.white12, height: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _verDetalle(context),
+                    icon: const Icon(Icons.manage_accounts_outlined, size: 16),
+                    label: const Text('Gestionar'),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => _confirmarEliminar(context),
+                    icon: const Icon(Icons.person_remove_outlined,
+                        size: 16, color: Colors.redAccent),
+                    label: const Text('Eliminar',
+                        style: TextStyle(color: Colors.redAccent)),
+                  ),
+                ],
+              ),
             ),
-            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
-          ),
-          const Divider(color: Colors.white12, height: 1),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () => _verDetalle(context),
-                  icon: const Icon(Icons.manage_accounts_outlined, size: 16),
-                  label: const Text('Gestionar'),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => _confirmarEliminar(context),
-                  icon: const Icon(Icons.person_remove_outlined,
-                      size: 16, color: Colors.redAccent),
-                  label: const Text('Eliminar',
-                      style: TextStyle(color: Colors.redAccent)),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

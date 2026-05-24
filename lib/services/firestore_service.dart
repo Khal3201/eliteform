@@ -182,22 +182,14 @@ class FirestoreService {
       'id_dieta_activa': FieldValue.delete(),
     });
   }
-    // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
   // EJERCICIOS
-  // ═══════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
 
   Stream<QuerySnapshot> getEjerciciosAdmin() {
     return _db
         .collection('ejercicios')
         .where('creado_por', isEqualTo: 'admin')
-        .snapshots();
-  }
-
-  Stream<QuerySnapshot> getEjerciciosPorCategoria(String categoria) {
-    return _db
-        .collection('ejercicios')
-        .where('creado_por', isEqualTo: 'admin')
-        .where('categoria', isEqualTo: categoria)
         .snapshots();
   }
 
@@ -209,25 +201,69 @@ class FirestoreService {
         .snapshots();
   }
 
+  Stream<QuerySnapshot> getEjerciciosAdminPorNivel(String nivel) {
+    return _db
+        .collection('ejercicios')
+        .where('creado_por', isEqualTo: 'admin')
+        .where('nivel', isEqualTo: nivel)
+        .snapshots();
+  }
+
   Future<String> crearEjercicio(EjercicioModel ejercicio) async {
     final ref = await _db.collection('ejercicios').add(ejercicio.toMap());
     return ref.id;
   }
 
-  Future<void> eliminarEjercicio(String idEjercicio) async {
-    await _db.collection('ejercicios').doc(idEjercicio).delete();
+  Future<void> eliminarEjercicio(String id) async {
+    await _db.collection('ejercicios').doc(id).delete();
   }
 
-  Future<EjercicioModel?> getEjercicioPorId(String idEjercicio) async {
-    final doc = await _db.collection('ejercicios').doc(idEjercicio).get();
-    if (!doc.exists) return null;
-    return EjercicioModel.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+  Future<void> actualizarEjercicio(String id, Map<String, dynamic> data) async {
+    await _db.collection('ejercicios').doc(id).update(data);
   }
 
-  Future<void> actualizarEjercicio(
-      String idEjercicio, Map<String, dynamic> data) async {
-    await _db.collection('ejercicios').doc(idEjercicio).update(data);
+  Future<bool> ejerciciosSeedYaCargados() async {
+    final snap = await _db
+        .collection('ejercicios')
+        .where('creado_por', isEqualTo: 'admin')
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
   }
+
+  Future<bool> rutinasSeedYaCargadas() async {
+    final snap = await _db
+        .collection('rutinas')
+        .where('creado_por', isEqualTo: 'admin')
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
+  }
+
+  Future<bool> dietasSeedYaCargadas() async {
+    final snap = await _db
+        .collection('dietas')
+        .where('creado_por', isEqualTo: 'admin')
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
+  }
+
+  Stream<QuerySnapshot> getEjerciciosPorCategoria({
+  String? musculo,
+  String? nivel,
+  String? tipo,
+}) {
+  Query query = _db
+      .collection('ejercicios')
+      .where('creado_por', isEqualTo: 'admin');
+
+  if (musculo != null) query = query.where('musculo', isEqualTo: musculo);
+  if (nivel != null) query = query.where('nivel', isEqualTo: nivel);
+  if (tipo != null) query = query.where('categoria', isEqualTo: tipo);
+
+  return query.snapshots();
+}
 
   // ═══════════════════════════════════════════════════════════════
   // Admin: asignacion directa

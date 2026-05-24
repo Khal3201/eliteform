@@ -1,13 +1,15 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// INICIO PAGE —
+// INICIO PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class InicioPage extends StatefulWidget {
-  /// Callback para cambiar la pestaña del BottomNavigationBar del padre.
   final void Function(int index)? onNavegar;
 
   const InicioPage({super.key, this.onNavegar});
@@ -17,24 +19,83 @@ class InicioPage extends StatefulWidget {
 }
 
 class _InicioPageState extends State<InicioPage> {
-  final PageController _carruselCtrl = PageController();
+  final PageController _carruselCtrl = PageController(viewportFraction: 0.88);
+
   int _paginaCarrusel = 0;
+  int _totalEventos = 0;
+  Timer? _autoPlayTimer;
+  bool _isAutoPlaying = false;
 
-  @override
-  void dispose() {
-    _carruselCtrl.dispose();
-    super.dispose();
-  }
-
-  // Índices del BottomNavigationBar en home_page.dart
   static const int _idxRutina = 1;
   static const int _idxDieta = 2;
   static const int _idxAcceso = 4;
 
+  @override
+  void dispose() {
+    _autoPlayTimer?.cancel();
+    _carruselCtrl.dispose();
+    super.dispose();
+  }
+
   void _navegar(int index) {
-    if (widget.onNavegar != null) {
-      widget.onNavegar!(index);
+    widget.onNavegar?.call(index);
+  }
+
+  void _onTotalEventosChanged(int total) {
+    if (!mounted) return;
+
+    final changed = _totalEventos != total;
+    if (!changed) return;
+
+    setState(() {
+      _totalEventos = total;
+
+      if (_totalEventos == 0) {
+        _paginaCarrusel = 0;
+      } else if (_paginaCarrusel >= _totalEventos) {
+        _paginaCarrusel = 0;
+      }
+    });
+
+    if (_totalEventos > 1) {
+      _iniciarAutoplaySiNecesario();
+    } else {
+      _autoPlayTimer?.cancel();
+      _autoPlayTimer = null;
+      _isAutoPlaying = false;
     }
+  }
+
+  void _onPageChanged(int i) {
+    if (!mounted) return;
+    setState(() => _paginaCarrusel = i);
+  }
+
+  void _iniciarAutoplaySiNecesario() {
+    if (_isAutoPlaying || _totalEventos <= 1) return;
+
+    _isAutoPlaying = true;
+    _autoPlayTimer?.cancel();
+
+    _autoPlayTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || !_carruselCtrl.hasClients || _totalEventos <= 1) return;
+
+      final current = (_carruselCtrl.page ?? _paginaCarrusel.toDouble()).round();
+      final safeCurrent = current.clamp(0, _totalEventos - 1);
+      final siguiente = (safeCurrent + 1) % _totalEventos;
+
+      if (siguiente == safeCurrent) return;
+
+      _carruselCtrl
+          .animateToPage(
+            siguiente,
+            duration: const Duration(milliseconds: 650),
+            curve: Curves.easeInOutCubic,
+          )
+          .whenComplete(() {
+        if (!mounted) return;
+      });
+    });
   }
 
   @override
@@ -45,51 +106,50 @@ class _InicioPageState extends State<InicioPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Saludo ──────────────────────────────────────────────────────
           _Saludo(uid: user?.uid ?? ''),
           const SizedBox(height: 20),
 
-          // ── Contador de personas en el gym ──────────────────────────────
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: _ContadorGym(),
           ),
           const SizedBox(height: 24),
 
-          // ── Sección de eventos (carrusel desde Firestore) ────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: const [
-                Text('Eventos y clases',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18)),
-              ],
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Eventos y clases',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
             ),
           ),
           const SizedBox(height: 12),
 
-          // Carrusel de eventos desde Firestore
           _CarruselEventos(
             carruselCtrl: _carruselCtrl,
             paginaActual: _paginaCarrusel,
-            onPageChanged: (i) => setState(() => _paginaCarrusel = i),
+            onPageChanged: _onPageChanged,
+            onTotalEventosChanged: _onTotalEventosChanged,
           ),
 
           const SizedBox(height: 24),
 
-          // ── Accesos rápidos funcionales ──────────────────────────────────
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Accesos rápidos',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18)),
+            child: Text(
+              'Accesos rápidos',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -127,26 +187,25 @@ class _InicioPageState extends State<InicioPage> {
 
 // ─── Carrusel de eventos desde Firestore ──────────────────────────────────────
 
-class _CarruselEventos extends StatelessWidget {
+class _CarruselEventos extends StatefulWidget {
   final PageController carruselCtrl;
   final int paginaActual;
   final ValueChanged<int> onPageChanged;
+  final ValueChanged<int> onTotalEventosChanged;
 
   const _CarruselEventos({
     required this.carruselCtrl,
     required this.paginaActual,
     required this.onPageChanged,
+    required this.onTotalEventosChanged,
   });
 
-  static const List<Map<String, dynamic>> _fallback = [
-    {
-      'titulo': 'Clase de Spinning',
-      'descripcion': 'Todos los martes y jueves a las 7:00 AM',
-      'icono': 'directions_bike',
-      'color': 0xFFEA580C,
-      'horario': 'Mar y Jue · 7:00 AM',
-    },
-  ];
+  @override
+  State<_CarruselEventos> createState() => _CarruselEventosState();
+}
+
+class _CarruselEventosState extends State<_CarruselEventos> {
+  List<Map<String, dynamic>> _eventos = [];
 
   IconData _iconoDesde(String nombre) {
     const m = {
@@ -159,6 +218,7 @@ class _CarruselEventos extends StatelessWidget {
       'run_circle': Icons.run_circle,
       'sports_gymnastics': Icons.sports_gymnastics,
     };
+
     return m[nombre] ?? Icons.event;
   }
 
@@ -168,55 +228,120 @@ class _CarruselEventos extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('eventos')
           .where('activo', isEqualTo: true)
-          .orderBy('orden')
           .snapshots(),
       builder: (context, snap) {
-        List<Map<String, dynamic>> eventos;
 
-        if (snap.hasData && snap.data!.docs.isNotEmpty) {
-          eventos = snap.data!.docs
-              .map((d) => d.data() as Map<String, dynamic>)
-              .toList();
-        } else {
-          eventos = _fallback;
+        // SOLO actualiza si sí llegaron datos
+        if (snap.hasData) {
+          _eventos = snap.data!.docs.map((d) {
+            return d.data() as Map<String, dynamic>;
+          }).toList();
+
+          _eventos.sort((a, b) {
+            final oa = (a['orden'] as num?)?.toInt() ?? 0;
+            final ob = (b['orden'] as num?)?.toInt() ?? 0;
+            return oa.compareTo(ob);
+          });
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            widget.onTotalEventosChanged(_eventos.length);
+          });
+        }
+
+        // Si no hay eventos todavía
+        if (_eventos.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              height: 180,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: const CircularProgressIndicator(
+                color: Colors.orangeAccent,
+              ),
+            ),
+          );
         }
 
         return Column(
           children: [
             SizedBox(
-              height: 180,
-              child: PageView.builder(
-                controller: carruselCtrl,
-                onPageChanged: onPageChanged,
-                itemCount: eventos.length,
-                itemBuilder: (_, i) {
-                  final e = eventos[i];
-                  final color = Color(e['color'] as int? ?? 0xFFEA580C);
-                  final icono = e['icono'] is String
-                      ? _iconoDesde(e['icono'])
-                      : Icons.event;
-                  return _TarjetaEvento(
-                    titulo: e['titulo'] ?? '',
-                    descripcion: e['descripcion'] ?? '',
-                    horario: e['horario'] ?? '',
-                    icono: icono,
-                    color: color,
-                  );
-                },
+              height: 190,
+              child: ScrollConfiguration(
+                behavior: const MaterialScrollBehavior().copyWith(
+                  dragDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.trackpad,
+                  },
+                ),
+                child: PageView.builder(
+                  controller: widget.carruselCtrl,
+                  itemCount: _eventos.length,
+                  onPageChanged: widget.onPageChanged,
+                  itemBuilder: (_, i) {
+                    final e = _eventos[i];
+
+                    final color = Color(
+                      (e['color'] as num?)?.toInt() ?? 0xFFEA580C,
+                    );
+
+                    final icono = e['icono'] is String
+                        ? _iconoDesde(e['icono'])
+                        : Icons.event;
+
+                    return AnimatedBuilder(
+                      animation: widget.carruselCtrl,
+                      builder: (context, child) {
+                        double scale = 1.0;
+
+                        if (widget.carruselCtrl.position.haveDimensions) {
+                          final page =
+                              widget.carruselCtrl.page ?? 0;
+
+                          scale = (1 -
+                                  ((page - i).abs() * 0.08))
+                              .clamp(0.92, 1.0);
+                        }
+
+                        return Transform.scale(
+                          scale: scale,
+                          child: child,
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: _TarjetaEvento(
+                          titulo: e['titulo'] ?? '',
+                          descripcion: e['descripcion'] ?? '',
+                          horario: e['horario'] ?? '',
+                          icono: icono,
+                          color: color,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
+
             const SizedBox(height: 12),
+
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
-                eventos.length,
+                _eventos.length,
                 (i) => AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: paginaActual == i ? 20 : 6,
+                  width: widget.paginaActual == i ? 20 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: paginaActual == i
+                    color: widget.paginaActual == i
                         ? Colors.orangeAccent
                         : Colors.white24,
                     borderRadius: BorderRadius.circular(3),
@@ -231,7 +356,7 @@ class _CarruselEventos extends StatelessWidget {
   }
 }
 
-// ─── Saludo personalizado ──────────────────────────────────────────────────────
+// ─── Saludo personalizado ─────────────────────────────────────────────────────
 
 class _Saludo extends StatelessWidget {
   final String uid;
@@ -242,19 +367,19 @@ class _Saludo extends StatelessWidget {
     if (uid.isEmpty) {
       return const Padding(
         padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Text('¡Bienvenido!',
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold)),
+        child: Text(
+          '¡Bienvenido!',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       );
     }
 
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(uid)
-          .snapshots(),
+      stream: FirebaseFirestore.instance.collection('usuarios').doc(uid).snapshots(),
       builder: (context, snap) {
         final nombre = (snap.data?.data() as Map<String, dynamic>?)?['nombre']
                 ?.toString()
@@ -278,11 +403,12 @@ class _Saludo extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$saludo, $nombre 👋',
+                '$saludo, $nombre',
                 style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               const Text(
@@ -312,9 +438,11 @@ class _ContadorGym extends StatelessWidget {
       builder: (context, snap) {
         final count = snap.data?.docs.length ?? 0;
         final personas = snap.data?.docs
-                .map((d) =>
-                    (d.data() as Map<String, dynamic>)['nombre']?.toString() ??
-                    '')
+                .map(
+                  (d) =>
+                      (d.data() as Map<String, dynamic>)['nombre']?.toString() ??
+                      '',
+                )
                 .where((n) => n.isNotEmpty)
                 .take(5)
                 .toList() ??
@@ -334,7 +462,9 @@ class _ContadorGym extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-                color: Colors.orangeAccent.withOpacity(0.4), width: 2),
+              color: Colors.orangeAccent.withOpacity(0.4),
+              width: 2,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,16 +477,20 @@ class _ContadorGym extends StatelessWidget {
                       color: Colors.orangeAccent.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.people,
-                        color: Colors.orangeAccent, size: 24),
+                    child: const Icon(
+                      Icons.people,
+                      color: Colors.orangeAccent,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Personas en el gym ahora',
-                          style:
-                              TextStyle(color: Colors.white54, fontSize: 12)),
+                      const Text(
+                        'Personas en el gym ahora',
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -372,9 +506,13 @@ class _ContadorGym extends StatelessWidget {
                           const SizedBox(width: 6),
                           const Padding(
                             padding: EdgeInsets.only(bottom: 6),
-                            child: Text('personas',
-                                style: TextStyle(
-                                    color: Colors.white54, fontSize: 14)),
+                            child: Text(
+                              'personas',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 14,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -391,18 +529,22 @@ class _ContadorGym extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.greenAccent,
-                                blurRadius: 8,
-                                spreadRadius: 2)
+                              color: Colors.greenAccent,
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            )
                           ],
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text('En vivo',
-                          style: TextStyle(
-                              color: Colors.greenAccent,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold)),
+                      const Text(
+                        'En vivo',
+                        style: TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -415,26 +557,37 @@ class _ContadorGym extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 6,
                   children: personas
-                      .map((nombre) => Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.07),
-                              borderRadius: BorderRadius.circular(50),
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.sports_gymnastics,
-                                    color: Colors.orangeAccent, size: 12),
-                                const SizedBox(width: 5),
-                                Text(nombre,
-                                    style: const TextStyle(
-                                        color: Colors.white70, fontSize: 12)),
-                              ],
-                            ),
-                          ))
+                      .map(
+                        (nombre) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.07),
+                            borderRadius: BorderRadius.circular(50),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.sports_gymnastics,
+                                color: Colors.orangeAccent,
+                                size: 12,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                nombre,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
                 if (count > 5)
@@ -442,8 +595,10 @@ class _ContadorGym extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
                       'y ${count - 5} más...',
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 11),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
               ] else if (count == 0) ...[
@@ -481,60 +636,99 @@ class _TarjetaEvento extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color.withOpacity(0.35), const Color(0xFF1E293B)],
+          colors: [color.withOpacity(0.38), const Color(0xFF1E293B)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icono, color: color, size: 36),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(titulo,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16)),
-                const SizedBox(height: 6),
-                Text(descripcion,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white54, fontSize: 12, height: 1.4)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.schedule, color: color, size: 13),
-                    const SizedBox(width: 4),
-                    Text(horario,
-                        style: TextStyle(
-                            color: color,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ],
-            ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.50)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -20,
+              top: -18,
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.04),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: color.withOpacity(0.25)),
+                    ),
+                    child: Icon(icono, color: color, size: 36),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          titulo,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          descripcion,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.schedule, color: color, size: 13),
+                            const SizedBox(width: 4),
+                            Text(
+                              horario,
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -571,9 +765,14 @@ class _AccesoRapido extends StatelessWidget {
             children: [
               Icon(icono, color: color, size: 26),
               const SizedBox(height: 8),
-              Text(label,
-                  style: TextStyle(
-                      color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ),

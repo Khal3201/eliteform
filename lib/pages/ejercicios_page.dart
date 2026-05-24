@@ -89,7 +89,7 @@ class EjerciciosPage extends StatefulWidget {
 
 class _EjerciciosPageState extends State<EjerciciosPage> {
   String? _musculoFiltro;
-  String? _categoriaFiltro;
+  String? _categoriaFiltro; // Fuerza / Cardio / Flexibilidad / Resistencia
   String? _nivelFiltro;
   String _busqueda = '';
   final _busquedaCtrl = TextEditingController();
@@ -100,10 +100,11 @@ class _EjerciciosPageState extends State<EjerciciosPage> {
     super.dispose();
   }
 
+  // FIX: _categoriaFiltro corresponde al campo 'tipo' en Firestore, no 'musculo'
   Stream<QuerySnapshot> _buildStream() {
-    // Filtramos por categoría en Firestore si hay filtro, resto en cliente
     if (_categoriaFiltro != null) {
-      return FirestoreService().getEjerciciosPorCategoria(_categoriaFiltro!);
+      return FirestoreService()
+          .getEjerciciosPorCategoria(tipo: _categoriaFiltro);
     }
     return FirestoreService().getEjerciciosAdmin();
   }
@@ -240,7 +241,7 @@ class _FiltrosEjercicios extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Categoría
+          // Categoría (tipo)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -273,7 +274,6 @@ class _FiltrosEjercicios extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                // Musculo dropdown-chip
                 _DropChip(
                   label: musculoSeleccionado ?? 'Músculo',
                   icono: Icons.accessibility_new,
@@ -301,7 +301,8 @@ class _FiltrosEjercicios extends StatelessWidget {
                     onNivel,
                   ),
                 ),
-                if (musculoSeleccionado != null || nivelSeleccionado != null) ...[
+                if (musculoSeleccionado != null ||
+                    nivelSeleccionado != null) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
@@ -320,7 +321,8 @@ class _FiltrosEjercicios extends StatelessWidget {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.clear, color: Colors.redAccent, size: 13),
+                          Icon(Icons.clear,
+                              color: Colors.redAccent, size: 13),
                           SizedBox(width: 4),
                           Text('Limpiar',
                               style: TextStyle(
@@ -338,6 +340,7 @@ class _FiltrosEjercicios extends StatelessWidget {
     );
   }
 
+  // FIX: usar DraggableScrollableSheet para evitar overflow en bottom sheet
   void _mostrarOpciones(
     BuildContext context,
     String titulo,
@@ -347,52 +350,84 @@ class _FiltrosEjercicios extends StatelessWidget {
   ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 8),
-          Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 12),
-          Text(titulo,
-              style: const TextStyle(
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        builder: (_, ctrl) => Material(
+          color: const Color(0xFF1E293B),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: Column(
+            children: [
+              // Handle + título fijos
+              const SizedBox(height: 8),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                titulo,
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16)),
-          const SizedBox(height: 8),
-          ListTile(
-            leading: const Icon(Icons.apps, color: Colors.white38),
-            title: const Text('Todos',
-                style: TextStyle(color: Colors.white54)),
-            trailing: seleccionado == null
-                ? const Icon(Icons.check, color: Colors.orangeAccent)
-                : null,
-            onTap: () {
-              onSeleccion(null);
-              Navigator.pop(context);
-            },
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Divider(color: Colors.white12, height: 1),
+              // Lista scrolleable
+              Expanded(
+                child: ListView(
+                  controller: ctrl,
+                  children: [
+                    ListTile(
+                      leading:
+                          const Icon(Icons.apps, color: Colors.white38),
+                      title: const Text('Todos',
+                          style: TextStyle(color: Colors.white54)),
+                      trailing: seleccionado == null
+                          ? const Icon(Icons.check,
+                              color: Colors.orangeAccent)
+                          : null,
+                      onTap: () {
+                        onSeleccion(null);
+                        Navigator.pop(context);
+                      },
+                    ),
+                    ...opciones.map((o) => ListTile(
+                          leading: Icon(Icons.circle,
+                              color:
+                                  Colors.orangeAccent.withOpacity(0.5),
+                              size: 8),
+                          title: Text(o,
+                              style:
+                                  const TextStyle(color: Colors.white)),
+                          trailing: seleccionado == o
+                              ? const Icon(Icons.check,
+                                  color: Colors.orangeAccent)
+                              : null,
+                          onTap: () {
+                            onSeleccion(o);
+                            Navigator.pop(context);
+                          },
+                        )),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ],
           ),
-          ...opciones.map((o) => ListTile(
-                leading: Icon(Icons.circle,
-                    color: Colors.orangeAccent.withOpacity(0.5), size: 8),
-                title: Text(o, style: const TextStyle(color: Colors.white)),
-                trailing: seleccionado == o
-                    ? const Icon(Icons.check, color: Colors.orangeAccent)
-                    : null,
-                onTap: () {
-                  onSeleccion(o);
-                  Navigator.pop(context);
-                },
-              )),
-          const SizedBox(height: 16),
-        ],
+        ),
       ),
     );
   }
@@ -417,9 +452,11 @@ class _DropChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: activo ? color.withOpacity(0.2) : const Color(0xFF1E293B),
+          color:
+              activo ? color.withOpacity(0.2) : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(50),
           border: Border.all(
               color: activo ? color : Colors.white12,
@@ -428,14 +465,16 @@ class _DropChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icono, color: activo ? color : Colors.white38, size: 13),
+            Icon(icono,
+                color: activo ? color : Colors.white38, size: 13),
             const SizedBox(width: 5),
             Text(label,
                 style: TextStyle(
                     color: activo ? color : Colors.white54,
                     fontSize: 12,
-                    fontWeight:
-                        activo ? FontWeight.bold : FontWeight.normal)),
+                    fontWeight: activo
+                        ? FontWeight.bold
+                        : FontWeight.normal)),
             const SizedBox(width: 3),
             Icon(Icons.keyboard_arrow_down,
                 color: activo ? color : Colors.white38, size: 14),
@@ -506,7 +545,9 @@ class _TarjetaEjercicio extends StatelessWidget {
                       ),
                     ),
                     _PillTag(
-                        label: ejercicio.categoria, color: color, small: true),
+                        label: ejercicio.categoria,
+                        color: color,
+                        small: true),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -514,7 +555,9 @@ class _TarjetaEjercicio extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        color: Colors.white54, fontSize: 12, height: 1.4)),
+                        color: Colors.white54,
+                        fontSize: 12,
+                        height: 1.4)),
                 if (ejercicio.equipamiento.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Row(
@@ -539,7 +582,8 @@ class _TarjetaEjercicio extends StatelessWidget {
           ),
           const Divider(color: Colors.white12, height: 1),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               children: [
                 TextButton.icon(
@@ -558,17 +602,22 @@ class _TarjetaEjercicio extends StatelessWidget {
   void _mostrarDetalle(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.6,
         maxChildSize: 0.92,
-        builder: (_, ctrl) => SingleChildScrollView(
-          controller: ctrl,
-          child: _DetalleEjercicioSheet(ejercicio: ejercicio),
+        builder: (_, ctrl) => Material(
+          color: const Color(0xFF1E293B),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: SingleChildScrollView(
+            controller: ctrl,
+            child: _DetalleEjercicioSheet(ejercicio: ejercicio),
+          ),
         ),
       ),
     );
@@ -618,15 +667,15 @@ class _DetalleEjercicioSheet extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                             fontSize: 20)),
                     const SizedBox(height: 4),
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
                       children: [
                         _MiniChip(
                             label: ejercicio.categoria, color: color),
-                        const SizedBox(width: 6),
                         _MiniChip(
                             label: ejercicio.musculo,
                             color: Colors.blueAccent),
-                        const SizedBox(width: 6),
                         _MiniChip(
                             label: ejercicio.nivel,
                             color: colorNivel(ejercicio.nivel)),
@@ -667,42 +716,37 @@ class _DetalleEjercicioSheet extends StatelessWidget {
               ),
               child: Text(ejercicio.instrucciones!,
                   style: const TextStyle(
-                      color: Colors.white70, fontSize: 13, height: 1.6)),
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.6)),
             ),
           ],
-          if (ejercicio.equipamiento.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Text('Equipamiento necesario',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: ejercicio.equipamiento.isEmpty
-                  ? [
-                      const _MiniChip(
-                          label: 'Sin equipamiento',
-                          color: Colors.greenAccent)
-                    ]
-                  : ejercicio.equipamiento
-                      .map((e) => _MiniChip(label: e, color: Colors.white54))
+          const SizedBox(height: 16),
+          const Text('Equipamiento necesario',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14)),
+          const SizedBox(height: 8),
+          ejercicio.equipamiento.isEmpty
+              ? const Row(
+                  children: [
+                    Icon(Icons.check_circle,
+                        color: Colors.greenAccent, size: 16),
+                    SizedBox(width: 8),
+                    Text('No requiere equipamiento',
+                        style: TextStyle(
+                            color: Colors.greenAccent, fontSize: 13)),
+                  ],
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: ejercicio.equipamiento
+                      .map((e) =>
+                          _MiniChip(label: e, color: Colors.white54))
                       .toList(),
-            ),
-          ] else ...[
-            const SizedBox(height: 16),
-            const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.greenAccent, size: 16),
-                SizedBox(width: 8),
-                Text('No requiere equipamiento',
-                    style:
-                        TextStyle(color: Colors.greenAccent, fontSize: 13)),
-              ],
-            ),
-          ],
+                ),
           const SizedBox(height: 20),
         ],
       ),
@@ -728,7 +772,9 @@ class _MiniChip extends StatelessWidget {
       ),
       child: Text(label,
           style: TextStyle(
-              color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w600)),
     );
   }
 }

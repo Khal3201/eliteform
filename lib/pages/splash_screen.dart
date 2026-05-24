@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import '../seed_data.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login_page.dart';
@@ -115,6 +115,8 @@ class _SplashScreenState extends State<SplashScreen>
 
     // 5. Salida con fade
     await _exitController.forward();
+    // HM. cargar semilla de datos
+    await SeedData.cargarTodo();
 
     // 6. Navegar
     if (mounted) _navigate();

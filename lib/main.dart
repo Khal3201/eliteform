@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'pages/splash_screen.dart';
+import 'pages/version_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,7 +57,12 @@ class MyApp extends StatelessWidget {
           color: Colors.orangeAccent,
         ),
       ),
-      home: const SplashScreen(),
+      // VersionGate envuelve toda la app. Si la versión instalada es menor
+      // a la mínima definida en Firestore (config/version), bloquea el acceso
+      // y muestra la pantalla de actualización requerida.
+      home: VersionGate(
+        child: SplashScreen(),
+      ),
     );
   }
 }

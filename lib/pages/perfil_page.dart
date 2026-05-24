@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'login_page.dart';
 import 'aviso_privacidad_page.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../config/app_version.dart';
 
 // NOTA: Firebase Storage eliminado. Las fotos se guardan como Base64
 // directamente en Firestore en el campo 'foto_base64' del documento
@@ -522,7 +523,7 @@ class _PerfilPageState extends State<PerfilPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text('v1.14.5 · khalebreyes06@gmail.com',
+              const Text('$kVersionActual · khalebreyes06@gmail.com',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white24, fontSize: 11)),
               const SizedBox(height: 20),
