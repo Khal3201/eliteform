@@ -9,6 +9,7 @@ import 'planes_page.dart';
 import 'inicio_page.dart';
 import 'qr_acceso_page.dart';
 import 'aviso_privacidad_page.dart';
+import 'chatbot_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -63,6 +64,7 @@ class _HomePageState extends State<HomePage> {
       const EjerciciosPage(),
       const QrAccesoPage(),
       const PlanesPage(),
+      const ChatbotPage(),
       const PerfilPage(),
     ];
 
@@ -143,6 +145,10 @@ class _HomePageState extends State<HomePage> {
               icon: Icon(Icons.card_membership_outlined),
               activeIcon: Icon(Icons.card_membership),
               label: 'Planes'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.smart_toy_outlined),
+              activeIcon: Icon(Icons.smart_toy),
+              label: 'Asistente'),
           BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person),

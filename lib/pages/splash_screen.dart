@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'login_page.dart';
 import 'home_page.dart';
 import 'admin_page.dart';
-
+import '../seed_respuestas_chatbot.dart';
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -117,6 +117,8 @@ class _SplashScreenState extends State<SplashScreen>
     await _exitController.forward();
     // HM. cargar semilla de datos
     await SeedData.cargarTodo();
+    await SeedChatbotRespuestas.cargar();
+    await SeedChatbotRespuestas.cargarMas();
 
     // 6. Navegar
     if (mounted) _navigate();
