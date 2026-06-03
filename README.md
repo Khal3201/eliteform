@@ -1,17 +1,29 @@
-# eliteform
+# EliteForm
 
-A new Flutter project.
+EliteForm es una app móvil desarrollada en Flutter para la gestión de un gimnasio, con autenticación de usuarios, planes/membresías, rutina, dieta, ejercicios, acceso por QR, perfil de usuario, chatbot y avisos de privacidad.
 
-## Getting Started
+## Características
 
-This project is a starting point for a Flutter application.
+- Registro e inicio de sesión con Firebase Authentication
+- Perfil de usuario con datos almacenados en Firestore
+- Sección de planes y membresías
+- Resumen y confirmación de pago
+- Rutina personalizada
+- Dieta
+- Ejercicios
+- Acceso mediante QR
+- Chatbot de soporte
+- Aviso de privacidad integrado
+- Panel administrativo
 
-A few resources to get you started if this is your first Flutter project:
+## Tecnologías usadas
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter
+- Dart
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Core
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Instalación
+
+Instala el release más reciente en tu dispositivo android.
