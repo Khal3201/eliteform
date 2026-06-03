@@ -33,13 +33,11 @@ class AdminPedidosPage extends StatelessWidget {
 
     if (!confirmar) return;
 
-    // Calcular próxima fecha de pago (1 mes desde hoy)
     final DateTime hoy = DateTime.now();
     final DateTime proximoPago = DateTime(hoy.year, hoy.month + 1, hoy.day);
 
     final batch = FirebaseFirestore.instance.batch();
 
-    // 1. Actualizar el pedido a "Aceptado"
     final pedidoRef =
         FirebaseFirestore.instance.collection('pedidos').doc(pedidoId);
     batch.update(pedidoRef, {
@@ -48,7 +46,6 @@ class AdminPedidosPage extends StatelessWidget {
       'fecha_proximo_pago': Timestamp.fromDate(proximoPago),
     });
 
-    // 2. Actualizar el documento del usuario con su membresía activa
     final usuarioRef =
         FirebaseFirestore.instance.collection('usuarios').doc(uidUsuario);
     batch.update(usuarioRef, {
@@ -103,17 +100,18 @@ class AdminPedidosPage extends StatelessWidget {
 
     final batch = FirebaseFirestore.instance.batch();
 
-    // 1. Eliminar el pedido
     batch
         .delete(FirebaseFirestore.instance.collection('pedidos').doc(pedidoId));
 
-    // 2. Limpiar membresía del usuario si la tenía
+    // FIX: también limpiar dentro_del_gym para que el monitor no cuente
+    // a alguien con membresía cancelada
     batch.update(
         FirebaseFirestore.instance.collection('usuarios').doc(uidUsuario), {
       'membresia_activa': false,
       'plan_activo': FieldValue.delete(),
       'fecha_proximo_pago': FieldValue.delete(),
       'pedido_id': FieldValue.delete(),
+      'dentro_del_gym': false,
     });
 
     await batch.commit();
@@ -125,28 +123,6 @@ class AdminPedidosPage extends StatelessWidget {
         backgroundColor: Colors.red,
       ),
     );
-  }
-
-  Color _colorEstado(String estado) {
-    switch (estado) {
-      case 'Aceptado':
-        return Colors.greenAccent;
-      case 'Pendiente':
-        return Colors.amberAccent;
-      default:
-        return Colors.white54;
-    }
-  }
-
-  IconData _iconoEstado(String estado) {
-    switch (estado) {
-      case 'Aceptado':
-        return Icons.check_circle;
-      case 'Pendiente':
-        return Icons.access_time;
-      default:
-        return Icons.help_outline;
-    }
   }
 
   @override
@@ -186,7 +162,6 @@ class AdminPedidosPage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Contador rápido
             Row(
               children: [
                 _ContadorChip(
@@ -204,7 +179,6 @@ class AdminPedidosPage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Pedidos pendientes primero
             if (pendientes.isNotEmpty) ...[
               const _SeccionHeader(
                   titulo: 'Pendientes de pago',
@@ -222,7 +196,6 @@ class AdminPedidosPage extends StatelessWidget {
               const SizedBox(height: 20),
             ],
 
-            // Pedidos aceptados
             if (aceptados.isNotEmpty) ...[
               const _SeccionHeader(
                   titulo: 'Membresías activas',
@@ -244,8 +217,6 @@ class AdminPedidosPage extends StatelessWidget {
     );
   }
 }
-
-// ─── Widgets auxiliares ────────────────────────────────────────────────────
 
 class _ContadorChip extends StatelessWidget {
   final String label;
@@ -351,7 +322,6 @@ class _TarjetaPedido extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: nombre + estado
             Row(
               children: [
                 const CircleAvatar(
@@ -401,7 +371,6 @@ class _TarjetaPedido extends StatelessWidget {
             const Divider(color: Colors.white12, height: 1),
             const SizedBox(height: 12),
 
-            // Info del pedido
             _InfoFila(
                 icono: Icons.fitness_center,
                 label: 'Plan',
@@ -428,7 +397,6 @@ class _TarjetaPedido extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            // Botones de acción
             if (!esAceptado)
               Row(
                 children: [

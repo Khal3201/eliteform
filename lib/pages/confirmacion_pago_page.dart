@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'home_page.dart';
+import 'planes_page.dart';
 class ConfirmacionPagoPage extends StatelessWidget {
   final Map<String, dynamic> plan;
   final String metodoPago;
@@ -142,7 +143,11 @@ class ConfirmacionPagoPage extends StatelessWidget {
                     // Elimina todas las rutas hasta llegar al HomePage,
                     // que ya contiene PlanesPage en su BottomNavigationBar.
                     // PlanesPage detectará el pedido y mostrará el estado correcto.
-                    Navigator.of(context).popUntil((route) => route.isFirst);
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HomePage(initialIndex: 5)),
+                      (route) => false,
+                    );
                   },
                   icon: const Icon(Icons.home),
                   label: const Text('Volver a los planes'),

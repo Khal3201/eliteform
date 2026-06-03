@@ -17,7 +17,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// Versión actual de esta build. Formato: MAYOR.MENOR.PARCHE
-const String kVersionActual = '1.16.0';
+const String kVersionActual = '1.17.0';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ▲▲▲  FIN DE LA ZONA EDITABLE  ▲▲▲

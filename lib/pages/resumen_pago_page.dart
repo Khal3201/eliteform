@@ -12,7 +12,6 @@ class ResumenPagoPage extends StatefulWidget {
 }
 
 class _ResumenPagoPageState extends State<ResumenPagoPage> {
-  // Método de pago seleccionado
   String _metodoPago = 'Efectivo';
   bool _procesando = false;
   String _nombreUsuario = '';
@@ -62,8 +61,12 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Guardar el pedido en Firestore
-      await FirebaseFirestore.instance.collection('pedidos').add({
+      // Usar batch para escritura atómica: pedido + referencia en usuario
+      final pedidoRef =
+          FirebaseFirestore.instance.collection('pedidos').doc();
+      final batch = FirebaseFirestore.instance.batch();
+
+      batch.set(pedidoRef, {
         'uid_usuario': user.uid,
         'nombre_usuario': _nombreUsuario,
         'plan': widget.plan['nombre'],
@@ -73,9 +76,17 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
         'fecha_pedido': FieldValue.serverTimestamp(),
       });
 
+      // FIX CRÍTICO: guardar pedido_id en el usuario para que
+      // PlanesPage detecte el estado "Pendiente" correctamente
+      batch.update(
+        FirebaseFirestore.instance.collection('usuarios').doc(user.uid),
+        {'pedido_id': pedidoRef.id},
+      );
+
+      await batch.commit();
+
       if (!context.mounted) return;
 
-      // Navegar a confirmación
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -89,7 +100,8 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
       setState(() => _procesando = false);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al procesar el pedido. Intenta de nuevo.')),
+        const SnackBar(
+            content: Text('Error al procesar el pedido. Intenta de nuevo.')),
       );
     }
   }
@@ -105,7 +117,6 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Resumen del plan elegido
             const Text(
               'Plan seleccionado',
               style: TextStyle(
@@ -173,7 +184,6 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
 
             const SizedBox(height: 28),
 
-            // Datos del usuario
             const Text(
               'Titular de la membresía',
               style: TextStyle(
@@ -218,7 +228,6 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
 
             const SizedBox(height: 28),
 
-            // Método de pago
             const Text(
               'Método de pago',
               style: TextStyle(
@@ -232,9 +241,7 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
             ..._metodos.map((metodo) {
               final bool seleccionado = _metodoPago == metodo['label'];
               return GestureDetector(
-                onTap: () {
-                  setState(() => _metodoPago = metodo['label']);
-                },
+                onTap: () => setState(() => _metodoPago = metodo['label']),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(14),
@@ -293,7 +300,6 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
 
             const SizedBox(height: 28),
 
-            // Total final
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -326,7 +332,6 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
 
             const SizedBox(height: 24),
 
-            // Botón de confirmar
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -341,8 +346,8 @@ class _ResumenPagoPageState extends State<ResumenPagoPage> {
                         ),
                       )
                     : const Icon(Icons.check),
-                label: Text(
-                    _procesando ? 'Procesando...' : 'Confirmar pedido'),
+                label:
+                    Text(_procesando ? 'Procesando...' : 'Confirmar pedido'),
               ),
             ),
 

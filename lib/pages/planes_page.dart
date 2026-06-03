@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'detalle_plan_page.dart';
+import 'resumen_pago_page.dart';
 
 class PlanesPage extends StatelessWidget {
   const PlanesPage({super.key});
@@ -77,6 +78,18 @@ class PlanesPage extends StatelessWidget {
         final bool membresiaActiva = userData['membresia_activa'] == true;
         final String? pedidoId = userData['pedido_id'];
 
+        // Verificar expiración de membresía activa client-side
+        if (membresiaActiva && pedidoId != null) {
+          final proximoPagoTs = userData['fecha_proximo_pago'];
+          if (proximoPagoTs != null) {
+            final proximoPago = (proximoPagoTs as Timestamp).toDate();
+            if (DateTime.now().isAfter(proximoPago)) {
+              // Membresía vencida — limpiar en background
+              _limpiarMembresiaVencida(user.uid, pedidoId);
+            }
+          }
+        }
+
         // ESTADO 3: Membresía activa
         if (membresiaActiva && pedidoId != null) {
           return _VistaMembresia(
@@ -98,6 +111,8 @@ class PlanesPage extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (!pedidoSnap.hasData || !pedidoSnap.data!.exists) {
+                // Pedido eliminado externamente — limpiar referencia huérfana
+                _limpiarPedidoHuerfano(user.uid);
                 return _VistaPlanes(uid: user.uid);
               }
               final pedidoData =
@@ -115,6 +130,36 @@ class PlanesPage extends StatelessWidget {
         return _VistaPlanes(uid: user.uid);
       },
     );
+  }
+
+  /// Limpia membresía vencida sin bloquear la UI
+  static Future<void> _limpiarMembresiaVencida(
+      String uid, String pedidoId) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      batch.update(
+        FirebaseFirestore.instance.collection('usuarios').doc(uid),
+        {
+          'membresia_activa': false,
+          'plan_activo': FieldValue.delete(),
+          'fecha_proximo_pago': FieldValue.delete(),
+          'pedido_id': FieldValue.delete(),
+        },
+      );
+      batch.delete(
+          FirebaseFirestore.instance.collection('pedidos').doc(pedidoId));
+      await batch.commit();
+    } catch (_) {}
+  }
+
+  /// Limpia referencia a pedido que ya no existe en Firestore
+  static Future<void> _limpiarPedidoHuerfano(String uid) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(uid)
+          .update({'pedido_id': FieldValue.delete()});
+    } catch (_) {}
   }
 }
 
@@ -258,8 +303,8 @@ class _PlanCard extends StatelessWidget {
                     const Padding(
                       padding: EdgeInsets.only(bottom: 5),
                       child: Text('/ mes',
-                          style:
-                              TextStyle(color: Colors.white54, fontSize: 14)),
+                          style: TextStyle(
+                              color: Colors.white54, fontSize: 14)),
                     ),
                   ],
                 ),
@@ -296,7 +341,8 @@ class _PlanCard extends StatelessWidget {
                     onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => DetallePlanPage(plan: plan))),
+                            builder: (context) =>
+                                DetallePlanPage(plan: plan))),
                     child: const Text('Ver plan completo'),
                   ),
                 ),
@@ -310,7 +356,7 @@ class _PlanCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ESTADO 2: Pedido pendiente
+// ESTADO 2: Pedido pendiente — con opción de modificar método de pago
 // ─────────────────────────────────────────────────────────────────────────────
 class _VistaPedidoPendiente extends StatelessWidget {
   final String pedidoId;
@@ -360,6 +406,60 @@ class _VistaPedidoPendiente extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
           content: Text('Pedido cancelado. Ya puedes elegir otro plan.')),
+    );
+  }
+
+  /// Permite cambiar el método de pago sin cancelar el pedido
+  Future<void> _modificarMetodoPago(BuildContext context) async {
+    final metodos = ['Efectivo', 'Transferencia', 'Tarjeta'];
+    final actual = pedidoData['metodo_pago'] as String? ?? 'Efectivo';
+    String seleccionado = actual;
+
+    final resultado = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: const Text('Cambiar método de pago',
+              style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: metodos
+                .map((m) => RadioListTile<String>(
+                      value: m,
+                      groupValue: seleccionado,
+                      onChanged: (v) => setLocal(() => seleccionado = v!),
+                      activeColor: Colors.orangeAccent,
+                      title: Text(m,
+                          style: const TextStyle(color: Colors.white)),
+                    ))
+                .toList(),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: Colors.white54))),
+            ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, seleccionado),
+                child: const Text('Guardar')),
+          ],
+        ),
+      ),
+    );
+
+    if (resultado == null || resultado == actual) return;
+
+    await FirebaseFirestore.instance
+        .collection('pedidos')
+        .doc(pedidoId)
+        .update({'metodo_pago': resultado});
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Método de pago actualizado'),
+          backgroundColor: Colors.greenAccent),
     );
   }
 
@@ -470,13 +570,31 @@ class _VistaPedidoPendiente extends StatelessWidget {
                         : pedidoData['metodo_pago'] == 'Transferencia'
                             ? 'Solicita los datos bancarios en recepción y envía tu comprobante.'
                             : 'Preséntate en recepción con tu tarjeta para que procesen el cobro.',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
+
+          // Botón modificar método de pago
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _modificarMetodoPago(context),
+              icon: const Icon(Icons.edit_outlined, color: Colors.amberAccent),
+              label: const Text('Cambiar método de pago',
+                  style: TextStyle(color: Colors.amberAccent)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.amberAccent),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -543,6 +661,7 @@ class _VistaMembresia extends StatelessWidget {
       'plan_activo': FieldValue.delete(),
       'fecha_proximo_pago': FieldValue.delete(),
       'pedido_id': FieldValue.delete(),
+      'dentro_del_gym': false,
     });
     await batch.commit();
 
@@ -770,7 +889,6 @@ class _VistaMembresia extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Cancelar membresía
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(

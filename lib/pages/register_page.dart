@@ -108,9 +108,10 @@ class _RegisterPageState extends State<RegisterPage> {
       });
 
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
+          (route) => false,
         );
       }
     } on FirebaseAuthException catch (e) {

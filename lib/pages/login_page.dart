@@ -79,10 +79,11 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
+        Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+        (route) => false,
+      );
       }
     } on FirebaseAuthException catch (e) {
       setState(() => _cargando = false);
@@ -173,7 +174,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 5),
                   const Text(
-                    'Entrena. Mejora. Supera.',
+                    'Entrena. Mejora. Supera.', 
                     style: TextStyle(color: Colors.white54),
                   ),
                   const SizedBox(height: 40),
